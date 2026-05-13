@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || 'system';
+            if (theme === 'light') { document.documentElement.setAttribute('data-theme', 'light'); } 
+            else if (theme === 'dark') { document.documentElement.setAttribute('data-theme', 'dark'); }
+        })();
+    </script>
+    <title>Bảng Giao Dịch</title>
+    
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            overflow-x: hidden !important; 
+            overflow-y: auto !important;   
+            width: 100%;
+            max-width: 100vw;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            overflow-x: hidden !important;
+            width: 100%;
+            max-width: 100vw;
+        }
+
+        .more-menu-container {
+            display: none; 
+            position: relative;
+            margin-left: auto; 
+        }
+        .more-dropdown {
+            display: none;
+            position: absolute;
+            top: 110%;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            flex-direction: column;
+            min-width: 180px;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        .more-dropdown.show {
+            display: flex;
+            animation: fadeIn 0.2s ease;
+        }
+        .more-dropdown a {
+            padding: 12px 15px;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+            border-bottom: 1px solid var(--border);
+        }
+        .more-dropdown a:last-child {
+            border-bottom: none;
+        }
+        .more-dropdown a:hover {
+            background: var(--bg-primary);
+        }
+        .more-dropdown a i {
+            width: 20px;
+            text-align: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .four-col-grid {
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 15px; 
+            align-items: end; 
+            margin-bottom: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        @media (max-width: 768px) {
+            .four-col-grid { grid-template-columns: 1fr !important; }
+            .four-col-grid .form-group { grid-column: span 1 !important; }
+            
+            .hide-on-mobile {
+                display: none !important;
+            }
+            .more-menu-container {
+                display: block;
+            }
+        }
+
+        .themed-input {
+            width: 100% !important; 
+            box-sizing: border-box;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            min-height: 42px; 
+        }
+        .themed-input:focus {
+            border-color: var(--accent);
+        }
+
+        .tags-dropdown {
+            background-color: var(--bg-secondary) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+        }
+        .tags-dropdown div {
+            padding: 8px 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        .tags-dropdown div:hover {
+            background-color: var(--bg-primary);
+        }
+        .tags-dropdown .new-tag {
+            color: var(--accent);
+            font-style: italic;
+            font-weight: bold;
+        }
+        .tag-pill {
+            background: var(--bg-primary) !important;
+            color: var(--text-secondary) !important;
+            border: 1px solid var(--border) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="nav-bar">
+                <a href="/" class="view-button" data-tooltip="Trang Chủ"><i class="fa-solid fa-chart-pie"></i></a>
+                <a href="/history" class="view-button active" data-tooltip="Hoạt động"><i class="fa-solid fa-clock-rotate-left"></i></a>
+                <a href="/trends" class="view-button" data-tooltip="Biến động"><i class="fa-solid fa-chart-line"></i></a>
+                <a href="/planning" class="view-button" data-tooltip="Ngân sách"><i class="fa-solid fa-piggy-bank"></i></a>
+                
+                <a href="/suggestions" class="view-button hide-on-mobile" data-tooltip="Gợi Ý AI"><i class="fa-solid fa-lightbulb"></i></a>
+                <a href="/profile" class="view-button hide-on-mobile" data-tooltip="Tài khoản">
+                    <i class="fa-solid fa-user-tie"></i>
+                </a>
+                <a href="/settings" class="view-button hide-on-mobile" data-tooltip="Cài Đặt"><i class="fa-solid fa-gear"></i></a>
+                
+                <a href="javascript:void(0)" class="view-button hide-on-mobile" onclick="showLogoutModal()" data-tooltip="Đăng Xuất" style="margin-left: auto; color: #ff4d4d;"><i class="fa-solid fa-right-from-bracket"></i></a>
+
+                <div class="more-menu-container">
+                    <a href="javascript:void(0)" class="view-button" id="mobileMoreBtn" style="padding: 10px 15px;">
+                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </a>
+                    <div class="more-dropdown" id="mobileMoreDropdown">
+                        <a href="/suggestions"><i class="fa-solid fa-lightbulb" style="color: #f59e0b"></i> Gợi Ý AI</a>
+                        <a href="/profile"><i class="fa-solid fa-user-tie" style="color: #3b82f6"></i> Tài khoản</a>
+                        <a href="/settings"><i class="fa-solid fa-gear" style="color: #8b5cf6"></i> Cài Đặt</a>
+                        <a href="javascript:void(0)" onclick="showLogoutModal()" style="color: #ff4d4d"><i class="fa-solid fa-right-from-bracket"></i> Đăng Xuất</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div id="calendarNavigationContainer" class="form-container" style="background-color: var(--bg-secondary); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <select id="periodSelect" style="padding: 8px 15px; border-radius: 8px; background-color: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); outline: none; cursor: pointer; font-family: inherit; font-weight: bold;">
+                    <option value="week">Theo Tuần</option>
+                    <option value="month">Theo Tháng</option>
+                    <option value="year">Theo Năm</option>
+                    <option value="all">Tất cả thời gian</option>
+                </select>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="prevPeriod" class="nav-button" style="padding: 5px 12px;"><i class="fa-solid fa-chevron-left"></i></button>
+                    <div id="currentPeriodLabel" style="min-width: 150px; text-align: center; color: var(--text-primary); font-weight: bold; font-size: 1.1rem;"></div>
+                    <button id="nextPeriod" class="nav-button" style="padding: 5px 12px;"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+
+            <div id="calendarWidget">
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: bold;">
+                    <div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div>CN</div>
+                </div>
+                <div id="calGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; overflow: hidden; transition: max-height 0.3s ease;">
+                    </div>
+                <div style="text-align: center; margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px;">
+                    <button id="calToggleBtn" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem; transition: transform 0.2s;">
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-container" style="display: flex; gap: 15px; align-items: center; justify-content: flex-start; flex-wrap: wrap; padding: 1rem; margin-bottom: 1rem; background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px;">
+            <label for="showAllToggle" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-primary); font-weight: bold; margin-right: 10px;">
+                <input type="checkbox" id="showAllToggle" class="styled-checkbox" style="transform: scale(1.2);"> Toàn bộ
+            </label>
+            
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <select id="categoryFilter" style="padding: 8px 12px; border-radius: 6px; background-color: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); outline: none; cursor: pointer;">
+                    <option value="all">📁 Tất cả danh mục</option>
+                </select>
+
+                <select id="tagFilter" style="padding: 8px 12px; border-radius: 6px; background-color: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); outline: none; cursor: pointer;">
+                    <option value="all">🏷️ Tất cả nhãn</option>
+                </select>
+
+                <select id="typeFilter" style="padding: 8px 12px; border-radius: 6px; background-color: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); outline: none; cursor: pointer;">
+                    <option value="all">💰 Tất cả Thu/Chi</option>
+                    <option value="income">📈 Chỉ Khoản Thu (+)</option>
+                    <option value="expense">📉 Chỉ Khoản Chi (-)</option>
+                </select>
+            </div>
+            
+            <div style="margin-left: auto;">
+                <button onclick="OCRScanner.open(function(){ initialize(); })" class="nav-button" style="padding: 8px 15px;"><i class="fa-solid fa-receipt"></i> Quét Hóa Đơn</button>
+                <script src="/static/ocr_scanner.js"></script>
+                <button
+          onclick="
+            PDFScanner.open(function () {
+              initialize();
+            })
+          "
+          class="nav-button">
+          <i class="fa-solid fa-file-pdf"></i> Quét File PDF
+        </button>
+        <script src="/static/pdf_scanner.js"></script>
+        <button
+          onclick="
+            CSVScanner.open(function () {
+              initialize();
+            })
+          "
+          class="nav-button">
+          <i class="fa-solid fa-file-csv"></i> Quét File CSV
+        </button>
+        <script src="/static/csv_scanner.js"></script>
+      </div>
+      <div id="scan-preview-area"></div>
+            </div>
+        </div>
+
+        <div class="form-container">
+            <form id="expenseForm">
+                <div class="four-col-grid">
+                    <div class="form-group">
+                        <label style="margin-bottom: 5px;">Mô tả</label>
+                        <input type="text" id="name" class="themed-input" placeholder="Ví dụ: Trà sữa" required>
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-bottom: 5px;">Danh mục</label>
+                        <select id="category" class="themed-input" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-bottom: 5px;">Số tiền</label>
+                        <input type="text" id="amount" class="themed-input" placeholder="0" required oninput="formatCurrencyInput(this)">
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-bottom: 5px;">Ngày</label>
+                        <input type="date" id="date" class="themed-input" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="margin-bottom: 5px;">Tần suất lặp lại</label>
+                        <select id="recurring_interval" class="themed-input">
+                            <option value="">Không lặp lại</option>
+                            <option value="daily">Hàng ngày</option>
+                            <option value="weekly">Hàng tuần</option>
+                            <option value="monthly">Hàng tháng</option>
+                            <option value="yearly">Hàng năm</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="jarSourceGroup" style="display: flex; flex-direction: column;">
+                        <label style="margin-bottom: 5px;">Rút từ Quỹ (Hũ)</label>
+                        <select id="jar_id" class="themed-input"></select>
+                    </div>
+                    
+                    <div class="form-group" style="position: relative;">
+                        <label style="margin-bottom: 5px;">Nhãn</label>
+                        <div id="tags-input-container" class="themed-input" style="display: flex; flex-wrap: wrap; gap: 5px; align-items: center; cursor: text;">
+                            <div id="selected-tags" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                            <input type="text" id="tags-input" placeholder="Nhập & Enter..." autocomplete="off" style="flex: 1; min-width: 80px; border: none; background: none; outline: none; padding: 0; margin: 0; color: var(--text-primary); font-size: inherit;">
+                        </div>
+                        <div id="tags-dropdown" class="tags-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 150px; overflow-y: auto; border-radius: 8px; padding: 5px 0;"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="margin-bottom: 5px;">Ghi chú chi tiết</label>
+                        <input type="text" id="note" class="themed-input" placeholder="Ghi chú thêm...">
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label for="reportGain" style="margin: 0; color: var(--text-secondary);">Khoản thu</label>
+                        <input type="checkbox" id="reportGain" style="transform: scale(1.2); cursor: pointer;">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" id="btnCancelEdit" class="nav-button" style="display: none; background-color: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); font-weight: bold;" onclick="cancelEditMode()">Hủy</button>
+                        <button type="submit" id="btnSubmitExpense" class="nav-button" style="padding: 10px 25px; font-weight: bold;">Lưu Giao Dịch</button>
+                    </div>
+                </div>
+            </form>
+            <div id="formMessage" class="form-message"></div>
+        </div>
+
+        <div id="tableContainer" style="overflow-x: auto;"></div>
+    </div>
+
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <h3>Xóa Giao Dịch</h3>
+            <p>Bạn có chắc chắn muốn xóa giao dịch này không? (Hành động này không thể hoàn tác)</p>
+            <div class="modal-buttons">
+                <button class="modal-button" onclick="closeDeleteModal()">Hủy bỏ</button>
+                <button class="modal-button confirm" onclick="confirmDelete()">Xóa</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="customConfirmModal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center;">
+        <div style="background: linear-gradient(145deg, #2a1e2d, #402a30); border: 2px solid #ff4d4d; border-radius: 12px; width: 90%; max-width: 450px; padding: 25px; box-shadow: 0 0 25px rgba(255, 77, 77, 0.4); text-align: center;">
+            <h3 style="color: #ff4d4d; margin-top: 0; margin-bottom: 15px;">
+                <i class="fa-solid fa-triangle-exclamation fa-beat"></i> Cảnh Báo
+            </h3>
+            <p id="confirmMessage" style="color: #e0e0e0; line-height: 1.6; margin-bottom: 25px; white-space: pre-line; font-size: 15px;"></p>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button id="btnConfirmCancel" style="padding: 10px 20px; background-color: #4a4a60; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Hủy bỏ</button>
+                <button id="btnConfirmProceed" style="padding: 10px 20px; background-color: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Vẫn Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/functions.js"></script>
+    <script>
+        let currentFilterCategory = 'all';
+        let currentFilterTag = 'all'; 
+        let currentFilterType = 'all'; 
+        
+        function formatCurrencyInput(input) {
+            let value = input.value;
+            value = value.replace(/[^\d.]/g, '');
+            const parts = value.split('.');
+            if (parts.length > 2) {
+                value = parts[0] + '.' + parts.slice(1).join('');
+            }
+            if (value) {
+                let splitValue = value.split('.');
+                splitValue[0] = splitValue[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                value = splitValue.join('.');
+            }
+            input.value = value;
+        }
+
+        let expenseCategories = [];
+        let incomeCategories = [];
+        let initialCategories = [];
+
+        let currentCurrency = 'usd', currentDate = new Date(), allExpenses = [], expensesForTable = [], startDate = 1, allTags = new Set(), selectedTags = new Set(), categoryColors = {};
+        let currentSortColumn = null, currentSortOrder = null;
+        
+        let currentPeriodType = "week";
+        let isCalendarExpanded = false;
+        let selectedDayFilter = null;
+
+        let globalJars = [];
+
+        function showCustomAlert(message) {
+            const alertMsg = document.getElementById("alertMessage");
+            const alertModal = document.getElementById("customAlertModal");
+            if(alertMsg && alertModal) {
+                alertMsg.textContent = message;
+                alertModal.style.display = "flex";
+            } else {
+                alert(message); 
+            }
+        }
+
+        async function loadJarsForSelect() {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/planning/jars', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                const jars = await res.json();
+                globalJars = jars; 
+                const select = document.getElementById('jar_id');
+                if (select) {
+                    select.innerHTML = '<option value="">-- Chọn Quỹ để rút --</option>';
+                    jars.forEach(j => {
+                        select.innerHTML += `<option value="${j.id}">${j.name} (${formatCurrency(j.balance)})</option>`;
+                    });
+                }
+            }
+        }
+
+        function updateExpenseFormCategoryOptions() {
+            const categorySelect = document.getElementById("category");
+            const isIncome = document.getElementById("reportGain").checked;
+            
+            if(categorySelect) {
+                const currentValue = categorySelect.value;
+                
+                const expOptions = expenseCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+                const incOptions = incomeCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+                
+                categorySelect.innerHTML = `<optgroup label="Chi Tiêu">${expOptions}</optgroup><optgroup label="Thu Nhập">${incOptions}</optgroup>`;
+                
+                if (currentValue && (expenseCategories.includes(currentValue) || incomeCategories.includes(currentValue))) {
+                    categorySelect.value = currentValue;
+                }
+            }
+            
+            const jarGroup = document.getElementById("jarSourceGroup");
+            if(jarGroup) {
+                jarGroup.style.display = isIncome ? 'none' : 'flex';
+                jarGroup.style.flexDirection = 'column'; 
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const mobileMoreBtn = document.getElementById("mobileMoreBtn");
+            const mobileMoreDropdown = document.getElementById("mobileMoreDropdown");
+            if (mobileMoreBtn && mobileMoreDropdown) {
+                mobileMoreBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    mobileMoreDropdown.classList.toggle("show");
+                });
+                document.addEventListener("click", (e) => {
+                    if (!mobileMoreDropdown.contains(e.target) && e.target !== mobileMoreBtn) {
+                        mobileMoreDropdown.classList.remove("show");
+                    }
+                });
+            }
+
+            const reportGainCheckbox = document.getElementById("reportGain");
+            const categorySelect = document.getElementById("category");
+
+            if(reportGainCheckbox) {
+                reportGainCheckbox.addEventListener("change", () => {
+                    updateExpenseFormCategoryOptions();
+                    if (categorySelect) {
+                        categorySelect.value = reportGainCheckbox.checked ? incomeCategories[0] : expenseCategories[0];
+                    }
+                });
+            }
+
+            if(categorySelect) {
+                categorySelect.addEventListener("change", (e) => {
+                    const isIncomeCat = incomeCategories.includes(e.target.value);
+                    if (reportGainCheckbox && reportGainCheckbox.checked !== isIncomeCat) {
+                        reportGainCheckbox.checked = isIncomeCat;
+                        updateExpenseFormCategoryOptions();
+                        categorySelect.value = e.target.value; 
+                    }
+                });
+            }
+        });
+
+        window.escapeHTML = function(str) {
+            if (str === null || str === undefined) return '';
+            if (typeof str !== 'string') return String(str);
+            return str.replace(/[&<>'"]/g, function(tag) {
+                const charsToReplace = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+                return charsToReplace[tag] || tag;
+            });
+        };
+
+        function assignCategoryColors(categories) {
+            const savedColors = JSON.parse(localStorage.getItem('customCategoryColors') || '{}');
+            const palette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#F7464A', '#8a2be2'];
+            
+            categories.forEach((category, index) => {
+                if (savedColors[category]) {
+                    categoryColors[category] = savedColors[category];
+                } else if (!categoryColors[category]) {
+                    categoryColors[category] = palette[index % palette.length]; 
+                }
+            });
+        }
+
+        window.getSortIcon = function(column) {
+            if (currentSortColumn !== column) return '<i class="fa-solid fa-sort" style="color: var(--text-secondary); margin-left: 5px;"></i>';
+            return currentSortOrder === 'asc' ? '<i class="fa-solid fa-sort-up" style="color: var(--accent); margin-left: 5px;"></i>' : '<i class="fa-solid fa-sort-down" style="color: var(--accent); margin-left: 5px;"></i>';
+        };
+
+        window.handleSort = function(column) {
+            if (currentSortColumn === column) {
+                if (currentSortOrder === 'desc') { currentSortOrder = 'asc'; } 
+                else { currentSortColumn = null; currentSortOrder = null; }
+            } else { currentSortColumn = column; currentSortOrder = 'desc'; }
+            updateTable();
+        };
+
+
+        function getPeriodBoundsOverride(date, period) {
+            const localDate = new Date(date);
+            if (period === "all") return { start: new Date("1970-01-01"), end: new Date("2099-12-31") };
+            if (period === "year") return { start: new Date(Date.UTC(localDate.getFullYear(), 0, 1, 0, 0, 0)), end: new Date(Date.UTC(localDate.getFullYear(), 11, 31, 23, 59, 59, 999)) };
+            if (period === "week") {
+                const day = localDate.getDay() || 7; 
+                const startLocal = new Date(localDate);
+                startLocal.setDate(localDate.getDate() - day + 1); startLocal.setHours(0, 0, 0, 0);
+                const endLocal = new Date(startLocal);
+                endLocal.setDate(startLocal.getDate() + 6); endLocal.setHours(23, 59, 59, 999);
+                return { start: startLocal, end: endLocal };
+            }
+            return getMonthBounds(date); 
+        }
+
+        function getFilteredExpensesOverride(expenses) {
+            if (selectedDayFilter) {
+                return expenses.filter(exp => {
+                    const expDateStr = exp.date.split('T')[0];
+                    return expDateStr === selectedDayFilter;
+                });
+            }
+
+            const { start, end } = getPeriodBoundsOverride(currentDate, currentPeriodType);
+            return expenses.filter((exp) => {
+                let safeDateString = exp.date;
+                if (!safeDateString.endsWith("Z")) safeDateString += "Z";
+                const expDate = new Date(safeDateString);
+                return expDate >= start && expDate <= end;
+            });
+        }
+
+        function updatePeriodDisplayOverride() {
+            const label = document.getElementById("currentPeriodLabel");
+            const btnPrev = document.getElementById("prevPeriod"); const btnNext = document.getElementById("nextPeriod");
+            if (!label) return;
+
+            if (currentPeriodType === "all") {
+                label.textContent = "Toàn bộ lịch sử"; btnPrev.style.visibility = "hidden"; btnNext.style.visibility = "hidden";
+            } else {
+                btnPrev.style.visibility = "visible"; btnNext.style.visibility = "visible";
+                if (currentPeriodType === "year") label.textContent = `Năm ${currentDate.getFullYear()}`;
+                else if (currentPeriodType === "week") {
+                    const { start, end } = getPeriodBoundsOverride(currentDate, "week");
+                    label.textContent = `Tuần: ${String(start.getDate()).padStart(2, "0")}/${String(start.getMonth() + 1).padStart(2, "0")} - ${String(end.getDate()).padStart(2, "0")}/${String(end.getMonth() + 1).padStart(2, "0")}`;
+                } else label.textContent = formatMonth(currentDate);
+            }
+        }
+
+        function createTable(expenses) {
+            if (!expenses || expenses.length === 0) {
+                let msg = document.getElementById('showAllToggle').checked ? 'Không tìm thấy giao dịch nào' : 'Không có giao dịch nào được ghi nhận trong giai đoạn này';
+                if (selectedDayFilter && !document.getElementById('showAllToggle').checked) {
+                    msg = `Không có giao dịch nào vào ngày ${selectedDayFilter.split('-').reverse().join('/')}`;
+                }
+                return `<div class="no-data">${msg}</div>`;
+            }
+                        
+            return `
+                <table class="expense-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="cursor: pointer; transition: 0.2s;" onclick="handleSort('name')" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color=''">Mô tả ${getSortIcon('name')}</th>
+                            <th>Danh mục</th>
+                            <th>Nhãn</th> <th style="cursor: pointer; transition: 0.2s;" onclick="handleSort('amount')" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color=''">Số tiền ${getSortIcon('amount')}</th>
+                            <th style="cursor: pointer; transition: 0.2s;" class="date-header" onclick="handleSort('date')" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color=''">Ngày ${getSortIcon('date')}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${expenses.map((expense, index) => {
+                            const catColor = categoryColors[expense.category] || '#d4a5ff';
+                            
+                            let tagsHtml = '-'; 
+                            if (expense.tags && expense.tags.length > 0) {
+                                tagsHtml = expense.tags.map(tag => `
+                                    <span style="background: var(--bg-primary); color: var(--text-secondary); padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; margin-right: 5px; display: inline-block; white-space: nowrap; border: 1px dashed var(--border);">
+                                        <i class="fa-solid fa-tag" style="margin-right: 4px; font-size: 0.7rem; opacity: 0.7;"></i>${escapeHTML(tag)}
+                                    </span>
+                                `).join('');
+                            }
+
+                            let noteHtml = '';
+                            if (expense.note && expense.note.trim() !== '') {
+                                noteHtml = `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; font-weight: normal; display: flex; align-items: flex-start; gap: 5px;">
+                                                <i class="fa-solid fa-align-left" style="margin-top: 3px; opacity: 0.6; flex-shrink: 0;"></i> 
+                                                <span style="word-break: break-word; overflow-wrap: break-word; white-space: pre-wrap; max-width: 250px;">${escapeHTML(expense.note)}</span>
+                                            </div>`;
+                            }
+
+                            return `
+                            <tr>
+                                <td>
+                                    <div style="font-weight: bold; color: var(--text-primary);">${escapeHTML(expense.name)}</div>
+                                    ${noteHtml}
+                                </td>
+                                <td><span style="background: ${catColor}1A; color: ${catColor}; border: 1px solid ${catColor}40; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; white-space: nowrap;">${escapeHTML(expense.category)}</span></td>
+                                <td class="tags-column">${tagsHtml}</td> 
+                                <td class="amount ${expense.amount > 0 ? 'positive' : 'negative'}" style="font-weight: bold;">${formatCurrency(expense.amount)}</td>
+                                <td class="date-column">${formatDateFromUTC(expense.date)}</td>
+                                <td>
+                                    <button class="edit-button" onclick="editExpenseByIndex(${index})"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button class="delete-button" onclick="handleDeleteClick(event, '${expense.id}')"><i class="fa-solid fa-trash-can"></i></button>
+                                </td>
+                            </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calGrid');
+            const widget = document.getElementById('calendarWidget');
+            const toggleBtn = document.getElementById('calToggleBtn');
+            const showAll = document.getElementById('showAllToggle').checked;
+            
+            if(!grid) return;
+
+            if (showAll || currentPeriodType === 'year' || currentPeriodType === 'all') {
+                widget.style.display = 'none';
+                return;
+            } else {
+                widget.style.display = 'block';
+            }
+            
+            toggleBtn.innerHTML = isCalendarExpanded ? '<i class="fa-solid fa-chevron-up"></i>' : '<i class="fa-solid fa-chevron-down"></i>';
+
+            let days = [];
+            let start = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+            
+            if (!isCalendarExpanded) {
+                let day = start.getDay() || 7; 
+                start.setDate(start.getDate() - day + 1);
+                for(let i = 0; i < 7; i++) { days.push(new Date(start)); start.setDate(start.getDate() + 1); }
+            } else {
+                start.setDate(1); 
+                let day = start.getDay() || 7;
+                start.setDate(start.getDate() - day + 1); 
+                for(let i = 0; i < 42; i++) { days.push(new Date(start)); start.setDate(start.getDate() + 1); }
+            }
+
+            const dailyData = {};
+            let totalMonthExpense = 0;
+            const rate = (typeof exchangeRatesToVND !== 'undefined') ? (exchangeRatesToVND[currentCurrency] || 1) : 1;
+            
+            allExpenses.forEach(exp => {
+                const dStr = exp.date.split('T')[0];
+                const expDateObj = new Date(dStr);
+                
+                if(!dailyData[dStr]) dailyData[dStr] = { in: 0, out: 0 };
+                
+                if(exp.amount > 0) {
+                    dailyData[dStr].in += exp.amount / rate;
+                } else {
+                    const outAmt = Math.abs(exp.amount) / rate;
+                    dailyData[dStr].out += outAmt;
+                    if (expDateObj.getFullYear() === currentDate.getFullYear() && expDateObj.getMonth() === currentDate.getMonth()) {
+                        totalMonthExpense += outAmt;
+                    }
+                }
+            });
+
+            const todayObj = new Date();
+            let daysToDivide = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+            if (currentDate.getFullYear() === todayObj.getFullYear() && currentDate.getMonth() === todayObj.getMonth()) {
+                daysToDivide = todayObj.getDate() || 1;
+            }
+            const avgDailyExpense = totalMonthExpense / daysToDivide;
+            const threshold = avgDailyExpense * 2;
+
+            grid.innerHTML = '';
+            const todayStr = todayObj.getFullYear() + '-' + String(todayObj.getMonth()+1).padStart(2,'0') + '-' + String(todayObj.getDate()).padStart(2,'0');
+
+            const formatShort = (val) => {
+                if (val === 0) return '';
+                return new Intl.NumberFormat('vi-VN', { notation: 'compact', compactDisplay: 'short', maximumFractionDigits: 1 }).format(val);
+            };
+
+            days.forEach(d => {
+                const dStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                const data = dailyData[dStr] || { in: 0, out: 0 };
+                const isToday = dStr === todayStr;
+                const isCurrentMonth = d.getMonth() === currentDate.getMonth();
+                
+                let opacity = isCurrentMonth ? '1' : '0.4';
+                let bg = 'var(--bg-primary)';
+                let border = '1px solid var(--border)';
+                let dateColor = 'var(--text-secondary)';
+
+                if (selectedDayFilter === dStr) {
+                    bg = 'rgba(138, 43, 226, 0.15)'; 
+                    border = '2px solid var(--accent)';
+                    dateColor = 'var(--accent)';
+                    opacity = '1'; 
+                } else if (isToday) {
+                    bg = 'rgba(105, 175, 222, 0.1)'; 
+                    border = '1px dashed var(--accent)';
+                    dateColor = 'var(--accent)';
+                }
+
+                let dotHtml = '';
+                if (data.out > 0 && threshold > 0 && data.out > threshold) {
+                    dotHtml = `<div style="position: absolute; top: 6px; left: 6px; width: 8px; height: 8px; background-color: #ff4d4d; border-radius: 50%; box-shadow: 0 0 5px rgba(255,77,77,0.5);"></div>`;
+                }
+
+                let inText = data.in > 0 ? `<div style="color: #2EAB7D; font-size: 0.75rem; font-weight: bold; margin-bottom: 2px;">+${formatShort(data.in)}</div>` : '';
+                let outText = data.out > 0 ? `<div style="color: var(--text-primary); font-size: 0.75rem; font-weight: bold; display: inline-block;">-${formatShort(data.out)}</div>` : ''; 
+
+                grid.innerHTML += `
+                    <div onclick="toggleDayFilter('${dStr}')" style="position: relative; cursor: pointer; background: ${bg}; border: ${border}; border-radius: 6px; padding: 5px; min-height: 60px; opacity: ${opacity}; display: flex; flex-direction: column; transition: all 0.2s ease;">
+                        ${dotHtml}
+                        <div style="text-align: right; font-size: 0.8rem; color: ${dateColor}; font-weight: bold;">${d.getDate()}</div>
+                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+                            ${inText}
+                            ${outText}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const calToggleBtn = document.getElementById('calToggleBtn');
+            if(calToggleBtn) {
+                calToggleBtn.addEventListener('click', () => {
+                    isCalendarExpanded = !isCalendarExpanded; 
+                    renderCalendar();
+                });
+            }
+        });
+
+        window.toggleDayFilter = function(dStr) {
+            if (selectedDayFilter === dStr) selectedDayFilter = null; 
+            else selectedDayFilter = dStr; 
+            updateTable(); 
+        };
+
+
+        function updateTable() {
+            const showAll = document.getElementById('showAllToggle').checked;
+            const navContainer = document.getElementById('calendarNavigationContainer');
+            if (navContainer) navContainer.style.display = showAll ? 'none' : 'block';
+
+            let filteredList = showAll ? allExpenses.slice() : getFilteredExpensesOverride(allExpenses);
+
+            if (currentFilterCategory !== 'all') {
+                filteredList = filteredList.filter(exp => exp.category === currentFilterCategory);
+            }
+
+            if (currentFilterTag !== 'all') {
+                filteredList = filteredList.filter(exp => exp.tags && exp.tags.includes(currentFilterTag));
+            }
+
+            if (currentFilterType === 'income') {
+                filteredList = filteredList.filter(exp => exp.amount > 0);
+            } else if (currentFilterType === 'expense') {
+                filteredList = filteredList.filter(exp => exp.amount < 0);
+            }
+
+            filteredList.sort((a, b) => {
+                if (!currentSortColumn) { return new Date(b.date).getTime() - new Date(a.date).getTime(); }
+                let valA, valB;
+                if (currentSortColumn === 'date') { valA = new Date(a.date).getTime(); valB = new Date(b.date).getTime(); } 
+                else if (currentSortColumn === 'amount') { valA = a.amount; valB = b.amount; } 
+                else if (currentSortColumn === 'name') { valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); }
+                if (valA < valB) return currentSortOrder === 'asc' ? -1 : 1;
+                if (valA > valB) return currentSortOrder === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            expensesForTable = filteredList; 
+            document.getElementById('tableContainer').innerHTML = createTable(expensesForTable);
+            
+            renderCalendar();
+        }
+
+        document.getElementById('categoryFilter')?.addEventListener('change', (e) => {
+            currentFilterCategory = e.target.value; updateTable();
+        });
+        document.getElementById('tagFilter')?.addEventListener('change', (e) => {
+            currentFilterTag = e.target.value; updateTable();
+        });
+        document.getElementById('typeFilter')?.addEventListener('change', (e) => {
+            currentFilterType = e.target.value; updateTable();
+        });
+
+        document.getElementById('periodSelect').addEventListener('change', (e) => { 
+            currentPeriodType = e.target.value; 
+            currentDate = new Date(); 
+            selectedDayFilter = null; 
+            isCalendarExpanded = currentPeriodType === 'month'; 
+            updatePeriodDisplayOverride(); 
+            updateTable(); 
+        });
+
+        document.getElementById('prevPeriod').addEventListener('click', () => { 
+            if (currentPeriodType === "month") currentDate.setMonth(currentDate.getMonth() - 1);
+            else if (currentPeriodType === "year") currentDate.setFullYear(currentDate.getFullYear() - 1);
+            else if (currentPeriodType === "week") currentDate.setDate(currentDate.getDate() - 7);
+            selectedDayFilter = null;
+            updatePeriodDisplayOverride(); 
+            updateTable(); 
+        });
+
+        document.getElementById('nextPeriod').addEventListener('click', () => { 
+            if (currentPeriodType === "month") currentDate.setMonth(currentDate.getMonth() + 1);
+            else if (currentPeriodType === "year") currentDate.setFullYear(currentDate.getFullYear() + 1);
+            else if (currentPeriodType === "week") currentDate.setDate(currentDate.getDate() + 7);
+            selectedDayFilter = null;
+            updatePeriodDisplayOverride(); 
+            updateTable(); 
+        });
+
+        document.getElementById('showAllToggle').addEventListener('change', () => {
+            selectedDayFilter = null; updateTable();
+        });
+
+
+        function editExpenseByIndex(index) {
+            const expense = expensesForTable[index]; 
+            if (expense) {
+                editExpense(expense.id, expense.name, expense.category, expense.amount, (expense.tags || []), expense.date, expense.note, expense.recurring_interval);
+            }
+        }
+
+        function renderSelectedTags(tags) {
+            const selectedContainer = document.getElementById('selected-tags');
+            selectedContainer.innerHTML = '';
+            selectedTags.clear();
+            (tags || []).forEach(tag => {
+                selectedTags.add(tag);
+                const pill = document.createElement('div'); pill.className = 'tag-pill'; pill.textContent = tag;
+                const removeBtn = document.createElement('span'); removeBtn.className = 'remove-tag'; removeBtn.textContent = '×';
+                removeBtn.onclick = () => { selectedTags.delete(tag); pill.remove(); };
+                pill.appendChild(removeBtn); selectedContainer.appendChild(pill);
+            });
+        }
+
+        function editExpense(id, name, category, amount, tags, date, note, recurring_interval) {
+            document.getElementById('reportGain').checked = amount > 0;
+            updateExpenseFormCategoryOptions();
+            
+            document.getElementById('name').value = name;
+            document.getElementById('category').value = category;
+            document.getElementById('note').value = note || '';
+            document.getElementById('recurring_interval').value = recurring_interval || '';
+            
+            let displayAmount = Math.abs(amount);
+            if (typeof exchangeRatesToVND !== 'undefined') {
+                const rate = exchangeRatesToVND[currentCurrency] || 1; displayAmount = displayAmount / rate;
+            }
+            
+            let formattedAmount = parseFloat(displayAmount.toFixed(2)).toString();
+            let parts = formattedAmount.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            document.getElementById('amount').value = parts.join('.');
+            
+            renderSelectedTags(tags);
+            document.getElementById('date').value = date.split('T')[0];
+            
+            const form = document.getElementById('expenseForm');
+            form.dataset.editId = id;
+            document.getElementById('btnSubmitExpense').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Cập nhật';
+            document.getElementById('btnCancelEdit').style.display = 'block'; 
+            
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function cancelEditMode() {
+            const form = document.getElementById('expenseForm');
+            form.reset();
+            updateExpenseFormCategoryOptions();
+            
+            document.getElementById('selected-tags').innerHTML = '';
+            selectedTags.clear();
+            delete form.dataset.editId;
+            document.getElementById('btnSubmitExpense').innerHTML = 'Lưu Giao Dịch';
+            document.getElementById('btnCancelEdit').style.display = 'none';
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            if(window.showToast) showToast('Đã hủy cập nhật', 'success');
+        }
+
+        function setupTagInput() {
+            const container = document.getElementById('tags-input-container'); const input = document.getElementById('tags-input'); const dropdown = document.getElementById('tags-dropdown'); const formGroup = container.parentElement;
+            const addTag = (tag) => { tag = tag.trim(); if (tag && !selectedTags.has(tag)) { selectedTags.add(tag); renderSelectedTags(Array.from(selectedTags)); } input.value = ''; dropdown.style.display = 'none'; };
+            input.addEventListener('focus', () => { dropdown.innerHTML = ''; const availableTags = [...allTags].filter(tag => !selectedTags.has(tag)); if (availableTags.length > 0) { availableTags.forEach(tag => { const item = document.createElement('div'); item.textContent = tag; item.onclick = () => addTag(tag); dropdown.appendChild(item); }); dropdown.style.display = 'block'; } });
+            input.addEventListener('input', () => { const value = input.value.trim().toLowerCase(); dropdown.innerHTML = ''; const filteredTags = [...allTags].filter(tag => tag.toLowerCase().includes(value) && !selectedTags.has(tag)); if(value && ![...allTags].map(t => t.toLowerCase()).includes(value)) { const newItem = document.createElement('div'); newItem.textContent = `+ Thêm nhãn "${input.value.trim()}"`; newItem.className = 'new-tag'; newItem.onclick = () => addTag(input.value.trim()); dropdown.appendChild(newItem); } filteredTags.forEach(tag => { const item = document.createElement('div'); item.textContent = tag; item.onclick = () => addTag(tag); dropdown.appendChild(item); }); dropdown.style.display = dropdown.children.length > 0 ? 'block' : 'none'; });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (input.value.trim()) addTag(input.value.trim()); }}); container.addEventListener('click', () => input.focus()); document.addEventListener('click', (e) => { if (!formGroup.contains(e.target)) dropdown.style.display = 'none'; });
+        }
+
+
+        async function initialize() {
+            try {
+                let config = { expenseCategories: ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"], incomeCategories: ["Lương", "Thưởng", "Đầu tư", "Khác"], currency: "usd", startDate: 1 };
+                try {
+                    const configResponse = await fetch('/api/config');
+                    if (configResponse.ok) {
+                        const fetchedConfig = await configResponse.json();
+                        if (fetchedConfig) config = {...config, ...fetchedConfig};
+                    }
+                } catch(e) {}
+                
+                if (config.expenseCategories && config.incomeCategories) {
+                    expenseCategories = config.expenseCategories;
+                    incomeCategories = config.incomeCategories;
+                } else if (config.categories) {
+                    expenseCategories = config.categories;
+                    incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
+                }
+                
+                initialCategories = [...expenseCategories, ...incomeCategories];
+                
+                updateExpenseFormCategoryOptions();
+
+                const catFilter = document.getElementById('categoryFilter');
+                if(catFilter) {
+                    const expOptions = expenseCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+                    const incOptions = incomeCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+                    catFilter.innerHTML = `<option value="all">📁 Tất cả danh mục</option><optgroup label="Chi Tiêu">${expOptions}</optgroup><optgroup label="Thu Nhập">${incOptions}</optgroup>`;
+                }
+
+                window.currentCurrency = config.currency || 'usd'; 
+                currentCurrency = window.currentCurrency;
+                startDate = config.startDate || 1;
+                
+                const response = await fetch('/api/expenses/');
+                if (!response.ok) throw new Error('Failed to fetch data');
+                const rawData = await response.json();
+                let fetchedExpenses = Array.isArray(rawData) ? rawData : (rawData && Array.isArray(rawData.expenses) ? rawData.expenses : []);
+                
+                allExpenses = fetchedExpenses.map(exp => {
+                    let safeTags = [];
+                    if (Array.isArray(exp.tags)) { safeTags = exp.tags; } 
+                    else if (typeof exp.tags === 'string') { try { safeTags = JSON.parse(exp.tags); } catch(e) {} if (!Array.isArray(safeTags) && exp.tags.trim() !== '') safeTags = [exp.tags]; }
+                    let safeDate = new Date().toISOString(); if (typeof exp.date === 'string' && exp.date.trim() !== '') { safeDate = exp.date; }
+
+                    let catName = exp.category || 'Khác';
+                    const exactMatch = initialCategories.find(c => c === catName);
+                    if (!exactMatch) {
+                        const lowerMatch = initialCategories.find(c => c.toLowerCase() === catName.toLowerCase());
+                        if (lowerMatch) {
+                            catName = lowerMatch;
+                        }
+                    }
+
+                    return { ...exp, name: exp.name || 'Không có mô tả', category: catName, amount: parseFloat(exp.amount) || 0, date: safeDate, tags: safeTags, note: exp.note || null, recurring_interval: exp.recurring_interval || null };
+                });
+
+                allTags.clear();
+                allExpenses.forEach(exp => { exp.tags.forEach(tag => allTags.add(tag)); });
+
+                const savedColors = JSON.parse(localStorage.getItem('customCategoryColors') || '{}');
+                const uniqueCategories = [...new Set(allExpenses.map(exp => exp.category))];
+                initialCategories.forEach(c => { if(!uniqueCategories.includes(c)) uniqueCategories.push(c); });
+
+                uniqueCategories.forEach((category, index) => {
+                    if (savedColors[category]) { 
+                        categoryColors[category] = savedColors[category]; 
+                    } else {
+                        const foundKey = Object.keys(savedColors).find(k => k.toLowerCase() === category.toLowerCase());
+                        if (foundKey) {
+                            categoryColors[category] = savedColors[foundKey];
+                        } else if (!categoryColors[category]) { 
+                            categoryColors[category] = colorPalette[index % colorPalette.length] || "#8a2be2"; 
+                        }
+                    }
+                });
+
+                const tagSelect = document.getElementById('tagFilter');
+                if (tagSelect) {
+                    tagSelect.innerHTML = `<option value="all">🏷️ Tất cả nhãn</option>` + 
+                        [...allTags].map(tag => `<option value="${tag}">${escapeHTML(tag)}</option>`).join('');
+                }
+
+                await loadJarsForSelect();
+
+                updatePeriodDisplayOverride();
+                updateTable();
+                setupTagInput();
+
+            } catch (error) {
+                console.error('Lỗi khi khởi tạo bảng (Chi tiết):', error);
+                document.getElementById('tableContainer').innerHTML = `<div class="no-data" style="color: #ff4d4d;"><i class="fa-solid fa-triangle-exclamation"></i> Lỗi khi tải danh sách giao dịch. Hãy kiểm tra (F12) Console để biết chi tiết.</div>`;
+            }
+        }
+
+        let expenseToDelete = null;
+        function showDeleteModal(id) { expenseToDelete = id; document.getElementById('deleteModal').classList.add('active'); }
+        function handleDeleteClick(event, id) { if (event.shiftKey) { expenseToDelete = id; confirmDelete(); } else { showDeleteModal(id); } }
+        function closeDeleteModal() { expenseToDelete = null; document.getElementById('deleteModal').classList.remove('active'); }
+
+        async function confirmDelete() {
+            if (!expenseToDelete) return;
+            try {
+                const response = await fetch(`/api/expenses/${expenseToDelete}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('Lỗi khi xóa giao dịch');
+                if(window.showToast) showToast('Đã xóa giao dịch thành công!', "success");
+                await initialize(); closeDeleteModal();
+            } catch (error) { if(window.showToast) showToast('Lỗi: Không thể xóa giao dịch.', "error"); }
+        }
+
+        document.getElementById('deleteModal').addEventListener('click', (e) => { if (e.target.className === 'modal active') closeDeleteModal(); });
+
+        function showCustomConfirm(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('customConfirmModal'); const msgEl = document.getElementById('confirmMessage'); const btnCancel = document.getElementById('btnConfirmCancel'); const btnProceed = document.getElementById('btnConfirmProceed');
+                msgEl.textContent = message; modal.style.display = 'flex';
+                const cleanup = () => { modal.style.display = 'none'; btnCancel.removeEventListener('click', onCancel); btnProceed.removeEventListener('click', onProceed); };
+                const onCancel = () => { cleanup(); resolve(false); }; const onProceed = () => { cleanup(); resolve(true); };  
+                btnCancel.addEventListener('click', onCancel); btnProceed.addEventListener('click', onProceed);
+            });
+        }
+
+        document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target; const editId = form.dataset.editId; const isGain = document.getElementById('reportGain').checked;
+            
+            let rawStringAmount = document.getElementById('amount').value.replace(/,/g, '');
+            let rawAmount = parseFloat(rawStringAmount);
+            
+            if (isNaN(rawAmount) || rawAmount <= 0) {
+                if(window.showToast) showToast("Vui lòng nhập số tiền hợp lệ lớn hơn 0!", "error");
+                return;
+            }
+
+            const selectedCategory = document.getElementById('category').value;
+            const selectedJar = document.getElementById('jar_id').value;
+            let rate = 1; if (typeof exchangeRatesToVND !== 'undefined') { rate = exchangeRatesToVND[currentCurrency] || 1; }
+            let amountInVND = rawAmount * rate; let finalAmountToSave = isGain ? amountInVND : -amountInVND;
+
+            if (!isGain && !selectedJar) {
+                showCustomAlert("Bạn ơi, vui lòng chọn Quỹ (Hũ) để rút tiền nhé!");
+                return; 
+            }
+
+            if (!isGain && selectedJar) {
+                const jarId = parseInt(selectedJar);
+                const jarData = globalJars.find(j => j.id === jarId);
+                
+                if (jarData && jarData.balance < amountInVND) {
+                    const balanceDisplay = formatCurrency(jarData.balance);
+                    const amountDisplay = formatCurrency(amountInVND);
+                    showCustomAlert(`Quỹ "${jarData.name}" hiện không đủ tiền để thực hiện giao dịch này!\n\n- Số dư hiện tại: ${balanceDisplay}\n- Số tiền cần rút: ${amountDisplay}`);
+                    return; 
+                }
+            }
+
+            if (!isGain && selectedCategory) {
+                try {
+                    const token = localStorage.getItem('token');
+                    const resBudgets = await fetch('/api/planning/budgets', { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (resBudgets.ok) {
+                        const currentBudgets = await resBudgets.json();
+                        const categoryBudget = currentBudgets.find(b => b.category === selectedCategory);
+                        if (categoryBudget && categoryBudget.limit_amount > 0) {
+                            const totalAfterExpense = categoryBudget.spent_amount + amountInVND;
+                            if (totalAfterExpense > categoryBudget.limit_amount) {
+                                const confirmMsg = `CẢNH BÁO VƯỢT NGÂN SÁCH!\n\nKhoản chi này sẽ làm bạn vượt hạn mức ngân sách của mục "${selectedCategory}".\n- Hạn mức: ${formatCurrency(categoryBudget.limit_amount)}\n- Tổng nếu lưu: ${formatCurrency(totalAfterExpense)}\n\nBạn có chắc chắn muốn tiếp tục lưu không?`;
+                                const userConfirmed = await showCustomConfirm(confirmMsg);
+                                if (!userConfirmed) return; 
+                            }
+                        }
+                    }
+                } catch(error) { console.error("Lỗi kiểm tra ngân sách:", error); }
+
+                const categoryExpenses = allExpenses.filter(exp => exp.amount < 0 && exp.category === selectedCategory); let categoryAverageVND = 0;
+                if (categoryExpenses.length > 0) { const totalCategory = categoryExpenses.reduce((sum, exp) => sum + Math.abs(exp.amount), 0); categoryAverageVND = totalCategory / categoryExpenses.length; }
+                const minAlertAmountVND = 50 * exchangeRatesToVND['usd']; 
+
+                if (categoryAverageVND > 0 && amountInVND > (categoryAverageVND * 3) && amountInVND > minAlertAmountVND) {
+                    const confirmMsg = `Số tiền bạn định lưu (${formatCurrency(amountInVND)}) lớn hơn GẤP NHIỀU LẦN so với mức chi tiêu trung bình của danh mục "${selectedCategory}" (${formatCurrency(categoryAverageVND)}).\n\nBạn có chắc chắn thông tin này là chính xác và muốn lưu không?`;
+                    const userConfirmed = await showCustomConfirm(confirmMsg); if (!userConfirmed) return; 
+                }
+            }
+
+            const formData = {
+                name: document.getElementById('name').value.trim(), category: selectedCategory, amount: finalAmountToSave, 
+                date: new Date(document.getElementById('date').value + "T00:00:00Z").toISOString(), tags: Array.from(selectedTags).map(t => String(t)), 
+                note: document.getElementById('note').value.trim() || null, recurring_interval: document.getElementById('recurring_interval').value || null,
+                jar_id: parseInt(selectedJar) || null
+            };
+
+            try {
+                const submitBtn = form.querySelector('button[type="submit"]'); submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...'; submitBtn.disabled = true;
+
+                const response = await fetch(editId ? `/api/expenses/${editId}` : '/api/expenses/', { method: editId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+                if (response.ok) {
+                    if(window.showToast) showToast(editId ? 'Đã cập nhật giao dịch!' : 'Đã thêm giao dịch mới!', "success");
+                    const lastDate = document.getElementById('date').value; 
+                    form.reset(); document.getElementById('selected-tags').innerHTML = ''; selectedTags.clear(); delete form.dataset.editId;
+                    
+                    document.getElementById('btnSubmitExpense').innerHTML = 'Lưu Giao Dịch';
+                    document.getElementById('btnCancelEdit').style.display = 'none';
+                    
+                    await initialize(); document.getElementById('date').value = lastDate; 
+                } else {
+                    const errorDetail = await response.json(); const msg = errorDetail.detail?.[0]?.msg || errorDetail.error || 'Không thể lưu do dữ liệu không hợp lệ'; const loc = errorDetail.detail?.[0]?.loc?.[1] || "";
+                    if(window.showToast) showToast(`Lỗi ${loc ? '['+loc+']' : ''}: ${msg}`, "error");
+                }
+            } catch (error) { if(window.showToast) showToast("Lỗi kết nối máy chủ!", "error"); } 
+            finally { const submitBtn = form.querySelector('button[type="submit"]'); submitBtn.innerHTML = 'Lưu Giao Dịch'; submitBtn.disabled = false; }
+        });
+        
+        document.addEventListener('DOMContentLoaded', initialize);
+        document.getElementById('name').addEventListener('click', (e) => { if (e.target.value === '-') e.target.value = ''; });
+        window.editExpenseByIndex = editExpenseByIndex;
+
+        function showLogoutModal() {
+            document.getElementById('logoutConfirmModal').style.display = 'flex';
+        }
+
+        function closeLogoutModal() {
+            document.getElementById('logoutConfirmModal').style.display = 'none';
+        }
+
+        function proceedLogout() {
+            closeLogoutModal();
+            if (typeof logout === 'function') {
+                logout();
+            } else {
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+            }
+        }
+    </script>
+    <script src="/static/chatbot.js"></script>
+    
+    <div id="logoutConfirmModal" class="modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center;">
+        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; width: 90%; max-width: 400px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center;">
+            <h3 style="color: var(--accent); margin-top: 0; margin-bottom: 15px;">
+                <i class="fa-solid fa-right-from-bracket"></i> Xác nhận Đăng Xuất
+            </h3>
+            <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 25px; font-size: 15px;">Bạn có chắc chắn muốn đăng xuất khỏi ExpenseOwl không?</p>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button onclick="closeLogoutModal()" style="flex: 1; padding: 10px 20px; background-color: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;">Hủy bỏ</button>
+                <button onclick="proceedLogout()" style="flex: 1; padding: 10px 20px; background-color: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;">Đăng Xuất</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="customAlertModal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); align-items: center; justify-content: center;">
+      <div style="background: linear-gradient(145deg, #2a1e2d, #402a30); border: 2px solid #ff4d4d; border-radius: 12px; width: 90%; max-width: 450px; padding: 25px; box-shadow: 0 0 25px rgba(255, 77, 77, 0.4); text-align: center;">
+        <h3 style="color: #ff4d4d; margin-top: 0; margin-bottom: 15px"><i class="fa-solid fa-circle-xmark fa-beat"></i> Lỗi Giao Dịch</h3>
+        <p id="alertMessage" style="color: #e0e0e0; line-height: 1.6; margin-bottom: 25px; white-space: pre-line; font-size: 15px;"></p>
+        <div style="display: flex; justify-content: center">
+          <button onclick="document.getElementById('customAlertModal').style.display='none'" style="padding: 10px 30px; background-color: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Đã hiểu</button>
+        </div>
+      </div>
+    </div>
+</body>
+</html>

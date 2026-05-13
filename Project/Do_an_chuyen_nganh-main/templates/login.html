@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <title>ExpenseOwl - Đăng Nhập</title>
+    <style>
+        .auth-container { max-width: 450px; margin: 10vh auto; }
+        .auth-toggle { text-align: center; margin-top: 20px; color: #b3b3b3; }
+        .auth-toggle a { color: #d4a5ff; text-decoration: none; font-weight: bold; transition: 0.2s; }
+        .auth-toggle a:hover { color: #ffffff; text-decoration: underline; }
+        
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: linear-gradient(145deg, #1e1e2d, #2a2a40); border-left: 4px solid #4ade80; color: #fff; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 12px; font-weight: 500; transform: translateX(120%); opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .toast.show { transform: translateX(0); opacity: 1; }
+        .toast.error { border-left-color: #ff4d4d; }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+
+    <div class="container auth-container">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <img src="/static/pwa/icon-192.png" alt="ExpenseOwl Logo" height="80">
+            <h2 style="margin-top: 10px;">ExpenseOwl</h2>
+        </div>
+        
+        <div class="form-container">
+            <h3 align="center" style="color: #d4a5ff;">Đăng Nhập</h3>
+            <form id="loginForm" class="expense-form">
+                <div class="form-group">
+                    <label for="loginUsername">Tên đăng nhập</label>
+                    <input type="text" id="loginUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Mật khẩu</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="nav-button" style="width: 100%; background-color: #8a2be2;">Đăng Nhập</button>
+            </form>
+            <div class="auth-toggle">
+                Chưa có tài khoản? <a href="/register">Đăng ký ngay</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.showToast = function(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+            const icon = type === 'error' 
+                ? '<i class="fa-solid fa-circle-exclamation" style="color: #ff4d4d; font-size: 18px;"></i>' 
+                : '<i class="fa-solid fa-circle-check" style="color: #4ade80; font-size: 18px;"></i>';
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400); 
+            }, 3000);
+        };
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            const btn = e.target.querySelector('button');
+            
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang đăng nhập...';
+            btn.disabled = true;
+
+            try {
+                const formData = new URLSearchParams();
+                formData.append('username', username);
+                formData.append('password', password);
+
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.access_token);
+                    window.location.href = '/'; 
+                } else {
+                    showToast('Sai tên đăng nhập hoặc mật khẩu', 'error');
+                }
+            } catch (error) {
+                showToast('Lỗi kết nối đến máy chủ', 'error');
+            } finally {
+                btn.innerHTML = 'Đăng Nhập';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

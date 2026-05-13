@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || 'system';
+            if (theme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+    <title>Cài Đặt ExpenseOwl</title>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="nav-bar">
+                <a href="/" class="view-button" data-tooltip="Trang Chủ">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </a>
+                <a href="/history" class="view-button" data-tooltip="Hoạt động">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </a>
+                <a href="/suggestions" class="view-button" data-tooltip="Gợi Ý AI">
+                    <i class="fa-solid fa-lightbulb"></i>
+                </a>
+                <a href="/settings" class="view-button active" data-tooltip="Cài Đặt">
+                    <i class="fa-solid fa-gear"></i>
+                </a>
+                <a href="#" class="view-button" onclick="logout()" data-tooltip="Đăng Xuất" style="margin-left: auto; color: #ff4d4d;">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
+        </header>
+
+        <div class="form-container">
+            <h2 align="center">Bảo mật tài khoản</h2>
+            
+            <div class="form-group">
+                <label>Tên đăng nhập</label>
+                <input type="text" id="currentUsername" value="Đang tải..." disabled style="background-color: #151521; color: #a0a0b0; border-color: #2a2a40;">
+            </div>
+
+            <form id="changePasswordForm" class="expense-form">
+                <div class="form-group">
+                    <label for="oldPassword">Mật khẩu hiện tại</label>
+                    <input type="password" id="oldPassword" placeholder="Nhập mật khẩu cũ..." required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="newPassword">Mật khẩu mới (Tối thiểu 6 ký tự)</label>
+                    <input type="password" id="newPassword" placeholder="Nhập mật khẩu mới..." required minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">Xác nhận mật khẩu mới</label>
+                    <input type="password" id="confirmPassword" placeholder="Nhập lại mật khẩu mới..." required minlength="6">
+                </div>
+                
+                <button type="submit" class="nav-button" style="width: 100%; margin-top: 15px; background-color: #8a2be2;">
+                    <i class="fa-solid fa-key"></i> Đổi Mật Khẩu
+                </button>
+            </form>
+        </div>
+
+        <div class="form-container">
+            <h2 align="center">Quản Lý Danh Mục</h2>
+            <div id="categories-manager">
+                <div id="categories-list" class="categories-list">
+                </div>
+                <div class="category-input-container">
+                    <input type="text" id="newCategory" placeholder="Thêm danh mục mới...">
+                    <button id="addCategory" class="nav-button">Thêm</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-container">
+            <div class="form-container half-width">
+                <h2 align="center">Cài Đặt Tiền Tệ</h2>
+                <div class="currency-selector">
+                    <select id="currencySelect">
+                    </select>
+                    <button id="saveCurrency" class="nav-button">Lưu</button>
+                </div>
+            </div>
+            
+            <div class="form-container half-width">
+                <h2 align="center">Ngày Bắt Đầu Tháng</h2>
+                <div class="start-date-manager">
+                    <input type="number" id="startDate" min="1" max="31" placeholder="1">
+                    <button id="saveStartDate" class="nav-button">Lưu</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-container">
+            <div class="form-container half-width">
+                <h2 align="center">Giao Diện</h2>
+                <div class="theme-selector">
+                    <select id="themeSelect">
+                        <option value="system">Mặc định hệ thống</option>
+                        <option value="light">Nền Sáng</option>
+                        <option value="dark">Nền Tối</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-container half-width">
+                <h2 align="center">Nhập/Xuất Dữ Liệu</h2>
+                
+                <div class="export-buttons" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                    
+                    <a href="javascript:void(0)" id="csv-export-file" class="nav-button" style="margin: 0; text-align: center;">
+                        <i class="fa-solid fa-download"></i> Xuất ra file CSV
+                    </a>
+                    
+                    <div>
+                        <label for="csv-import-file" class="nav-button" style="margin: 0; cursor: pointer; display: inline-block; text-align: center;">
+                            <i class="fa-solid fa-file-csv"></i> Nhập từ file CSV
+                        </label>
+                        <input type="file" id="csv-import-file" accept=".csv" style="display: none;">
+                    </div>
+
+                </div>
+
+                <div id="importSummary" class="import-summary" style="display: none; background: #151521; padding: 15px; border-radius: 8px; border: 1px solid #2a2a40;">
+                    <h3 style="color: #4ade80; margin-top: 0;"><i class="fa-solid fa-clipboard-check"></i> Tổng kết nhập dữ liệu</h3>
+                    <p>Tổng số dòng: <strong style="color:#fff;" id="summary-processed"></strong></p>
+                    <p>Thành công: <strong style="color:#4ade80;" id="summary-imported"></strong></p>
+                    <p>Bỏ qua (Lỗi/Trùng): <strong style="color:#ff4d4d;" id="summary-skipped"></strong></p>
+                    <p style="margin-bottom: 0;">Danh mục mới: <strong style="color:#d4a5ff;" id="summary-new-categories"></strong></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-container">
+            <h2 align="center">Giao Dịch Định Kỳ</h2>
+            <form id="recurringExpenseForm" class="expense-form recurring-expense-form">
+                <div class="form-group">
+                    <label for="recurringName">Mô tả</label>
+                    <input type="text" id="recurringName" required>
+                </div>
+                <div class="form-group">
+                    <label for="recurringAmount">Số tiền</label>
+                    <input type="number" id="recurringAmount" step="0.01" min="0.01" max="9000000000000000" required>
+                </div>
+                <div class="form-group">
+                    <label for="recurringCategory">Danh mục</label>
+                    <select id="recurringCategory" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="tags-input">Nhãn (Tags)</label>
+                    <div class="tags-input-container">
+                        <div id="selected-tags" class="selected-tags"></div>
+                        <input type="text" id="tags-input" placeholder="(tùy chọn)">
+                    </div>
+                    <div id="tags-dropdown" class="tags-dropdown"></div>
+                </div>
+                <div class="form-group">
+                    <label for="recurringInterval">Chu kỳ</label>
+                    <select id="recurringInterval" required>
+                        <option value="daily">Hằng ngày</option>
+                        <option value="weekly">Hằng tuần</option>
+                        <option value="monthly">Hằng tháng</option>
+                        <option value="yearly">Hằng năm</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="recurringStartDate">Ngày bắt đầu</label>
+                    <input type="date" id="recurringStartDate" required>
+                    <script>
+                        const today = new Date();
+                        const year = today.getFullYear();
+                        const month = String(today.getMonth() + 1).padStart(2, '0');
+                        const day = String(today.getDate()).padStart(2, '0');
+                        document.getElementById('recurringStartDate').value = `${year}-${month}-${day}`;
+                    </script>
+                </div>
+                <div class="form-group">
+                    <label for="recurringOccurrences">Số lần lặp lại</label>
+                    <input type="number" id="recurringOccurrences" min="2" value="2" required>
+                </div>
+                <div class="form-group form-group-checkbox">
+                    <label for="recurringReportGain">Khoản thu (Thu nhập)</label>
+                    <input type="checkbox" id="recurringReportGain" class="styled-checkbox">
+                </div>
+                <button type="submit" class="nav-button">Thêm Giao Dịch Định Kỳ</button>
+            </form>
+            <h3 align="center" style="margin-top: 2rem;">Danh Sách Giao Dịch Định Kỳ</h3>
+            <div id="recurring-expenses-list">
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteRecurringModal" class="modal">
+        <div class="modal-content">
+            <h3>Xóa Giao Dịch Định Kỳ</h3>
+            <p>Bạn muốn xóa tất cả các giao dịch này, hay chỉ xóa những giao dịch trong tương lai?</p>
+            <div class="modal-buttons">
+                <button class="modal-button" onclick="closeRecurringDeleteModal()">Hủy bỏ</button>
+                <button class="modal-button" onclick="confirmRecurringDelete(false)">Chỉ xóa tương lai</button>
+                <button class="modal-button confirm" onclick="confirmRecurringDelete(true)">Xóa tất cả</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editRecurringModal" class="modal">
+        <div class="modal-content">
+            <h3>Sửa Giao Dịch Định Kỳ</h3>
+            <form id="editRecurringExpenseForm" class="expense-form recurring-expense-form">
+                 <div class="form-group">
+                    <label for="editRecurringName">Mô tả</label>
+                    <input type="text" id="editRecurringName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringAmount">Số tiền</label>
+                    <input type="number" id="editRecurringAmount" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringCategory">Danh mục</label>
+                    <select id="editRecurringCategory" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-tags-input">Nhãn (Tags)</label>
+                    <div class="tags-input-container">
+                        <div id="edit-selected-tags" class="selected-tags"></div>
+                        <input type="text" id="edit-tags-input" placeholder="(tùy chọn)">
+                    </div>
+                    <div id="edit-tags-dropdown" class="tags-dropdown"></div>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringInterval">Chu kỳ</label>
+                    <select id="editRecurringInterval" required>
+                        <option value="daily">Hằng ngày</option>
+                        <option value="weekly">Hằng tuần</option>
+                        <option value="monthly">Hằng tháng</option>
+                        <option value="yearly">Hằng năm</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringStartDate">Ngày bắt đầu</label>
+                    <input type="date" id="editRecurringStartDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringOccurrences">Số lần lặp lại (Nhập 0 nếu lặp vô hạn)</label>
+                    <input type="number" id="editRecurringOccurrences" min="0" value="0" required>
+                </div>
+                <div class="form-group form-group-checkbox">
+                    <label for="editRecurringReportGain">Khoản thu (Thu nhập)</label>
+                    <input type="checkbox" id="editRecurringReportGain" class="styled-checkbox">
+                </div>
+            </form>
+            <div class="modal-buttons">
+                <button class="modal-button" onclick="closeRecurringEditModal()">Hủy bỏ</button>
+                <button class="modal-button" onclick="confirmRecurringUpdate(false)">Cập nhật tương lai</button>
+                <button class="modal-button confirm" onclick="confirmRecurringUpdate(true)">Cập nhật tất cả</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/functions.js"></script>
+    <script>
+        let categories = [];
+        let allTags = new Set();
+        let addFormSelectedTags = new Set();
+        let editFormSelectedTags = new Set();
+        let currentCurrency = "usd";
+        let currentStartDate = 1;
+        let draggedItem = null;
+        let recurringExpenses = [];
+        let recurringExpenseToDelete = null;
+        let recurringExpenseToEdit = null;
+
+        // LẤY TÊN ĐĂNG NHẬP
+        const token = localStorage.getItem('token'); 
+        if (token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                
+                const payload = JSON.parse(jsonPayload);
+                document.getElementById('currentUsername').value = payload.sub || "Không rõ"; 
+            } catch (error) {
+                document.getElementById('currentUsername').value = "Lỗi giải mã token";
+            }
+        } else {
+            document.getElementById('currentUsername').value = "Chưa đăng nhập";
+        }
+
+        document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                if(window.showToast) showToast("Hai ô mật khẩu mới không khớp nhau!", "error");
+                return;
+            }
+
+            const btn = e.target.querySelector('button');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/auth/change-password', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+                });
+
+                if (res.ok) {
+                    if(window.showToast) showToast("Đổi mật khẩu thành công!", "success");
+                    e.target.reset();
+                } else {
+                    const err = await res.json();
+                    if(window.showToast) showToast(err.detail || "Lỗi khi đổi mật khẩu!", "error");
+                }
+            } catch (error) {
+                if(window.showToast) showToast("Lỗi kết nối máy chủ!", "error");
+            } finally {
+                btn.innerHTML = '<i class="fa-solid fa-key"></i> Đổi Mật Khẩu';
+                btn.disabled = false;
+            }
+        });
+
+        // --- Category Management ---
+        function renderCategories() {
+            const list = document.getElementById('categories-list');
+            list.innerHTML = '';
+            categories.forEach((category, index) => {
+                const item = document.createElement('div');
+                item.className = 'category-item';
+                item.draggable = true;
+                item.dataset.index = index;
+                item.innerHTML = `
+                    <div class="category-handle-area">
+                        <span class="drag-handle"><i class="fa-solid fa-grip-lines"></i></span>
+                        <span>${category}</span>
+                    </div>
+                    <button class="delete-button" onclick="removeCategory(${index})">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                `;
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('dragleave', handleDragLeave);
+                item.addEventListener('dragend', handleDragEnd);
+                item.addEventListener('drop', handleDrop);
+                list.appendChild(item);
+            });
+        }
+
+        function handleDragStart(e) {
+            this.classList.add('dragging');
+            draggedItem = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            removePlaceholders();
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('drag-over');
+            if (this === draggedItem) return false;
+            const rect = this.getBoundingClientRect();
+            const clientY = e.clientY;
+            const threshold = rect.top + (rect.height / 2);
+            const isBefore = clientY < threshold;
+            removePlaceholders();
+            const placeholder = document.createElement('div');
+            placeholder.className = 'placeholder';
+            if (isBefore) {
+                this.parentNode.insertBefore(placeholder, this);
+            } else {
+                this.parentNode.insertBefore(placeholder, this.nextSibling);
+            }
+            return false;
+        }
+
+        function handleDragLeave() { this.classList.remove('drag-over'); }
+        function handleDragEnd() {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.category-item, .tag-item').forEach(item => item.classList.remove('drag-over'));
+            removePlaceholders();
+        }
+        function removePlaceholders() { document.querySelectorAll('.placeholder').forEach(p => p.remove()); }
+
+        function handleDrop(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            removePlaceholders();
+            if (draggedItem !== this) {
+                const fromIndex = parseInt(draggedItem.dataset.index, 10);
+                let toIndex = parseInt(this.dataset.index, 10);
+                const rect = this.getBoundingClientRect();
+                const isBefore = e.clientY < rect.top + rect.height / 2;
+                if (!isBefore) toIndex++;
+                if (fromIndex < toIndex) toIndex--;
+                const list = categories;
+                const movedItem = list.splice(fromIndex, 1)[0];
+                list.splice(toIndex, 0, movedItem);
+                
+                renderCategories();
+                saveCategories(false); 
+            }
+            return false;
+        }
+
+        function addCategory() {
+            const input = document.getElementById('newCategory');
+            let category = input.value.trim();
+            category = category.replace(/[<>]/g, ' ').trim();
+            if (category && !categories.includes(category)) {
+                categories.push(category);
+                renderCategories();
+                input.value = '';
+                saveCategories(true, 'Đã thêm danh mục mới'); 
+            } else if (categories.includes(category)) {
+                if(window.showToast) showToast('Danh mục đã tồn tại', "error");
+            } else if (!category) {
+                if(window.showToast) showToast('Tên danh mục không được để trống.', "error");
+            }
+        }
+
+        function removeCategory(index) {
+            if (categories.length <= 1) {
+                if(window.showToast) showToast('Cần giữ lại ít nhất một danh mục!', "error");
+                return;
+            }
+            categories.splice(index, 1);
+            renderCategories();
+            saveCategories(true, 'Đã xóa danh mục'); 
+        }
+
+        async function saveCategories(showNotification = true, customMsg = 'Đã cập nhật danh mục') {
+            if (categories.length === 0) return;
+            try {
+                const response = await fetch('/api/categories/edit', {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(categories)
+                });   
+                if (response.ok) {
+                    if(showNotification && window.showToast) showToast(customMsg, "success");
+                } else {
+                    const error = await response.json();
+                    if(window.showToast) showToast(`Lỗi: ${error.error}`, "error");
+                }
+            } catch (error) {
+                if(window.showToast) showToast('Lỗi khi lưu danh mục', "error");
+            }
+        }
+        
+        // --- Tag Input Component ---
+        function createTagInput(inputId, selectedContainerId, dropdownId, selectedTagsSet) {
+            const input = document.getElementById(inputId);
+            const selectedContainer = document.getElementById(selectedContainerId);
+            const dropdown = document.getElementById(dropdownId);
+
+            const renderSelected = () => {
+                selectedContainer.innerHTML = '';
+                selectedTagsSet.forEach(tag => {
+                    const pill = document.createElement('div');
+                    pill.className = 'tag-pill';
+                    pill.textContent = tag;
+                    const removeBtn = document.createElement('span');
+                    removeBtn.className = 'remove-tag';
+                    removeBtn.textContent = '×';
+                    removeBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        selectedTagsSet.delete(tag);
+                        renderSelected();
+                    };
+                    pill.appendChild(removeBtn);
+                    selectedContainer.appendChild(pill);
+                });
+            };
+
+            const addTag = (tag) => {
+                tag = tag.trim().replace(/[<>]/g, ' ').trim();
+                if (tag) {
+                    selectedTagsSet.add(tag);
+                    renderSelected();
+                }
+                input.value = '';
+                dropdown.style.display = 'none';
+            };
+            
+            input.addEventListener('focus', () => {
+                const value = input.value.trim().toLowerCase();
+                dropdown.innerHTML = '';
+                const availableTags = [...allTags].filter(tag => !selectedTagsSet.has(tag));
+                if (availableTags.length > 0) {
+                    availableTags.forEach(tag => {
+                        const item = document.createElement('div');
+                        item.textContent = tag;
+                        item.onclick = () => addTag(tag);
+                        dropdown.appendChild(item);
+                    });
+                    dropdown.style.display = 'block';
+                }
+            });
+
+            input.addEventListener('input', () => {
+                const value = input.value.trim().toLowerCase();
+                dropdown.innerHTML = '';
+                const filteredTags = [...allTags].filter(tag => tag.toLowerCase().includes(value) && !selectedTagsSet.has(tag));
+
+                if (value && ![...allTags].map(t => t.toLowerCase()).includes(value)) {
+                    const newItem = document.createElement('div');
+                    newItem.textContent = `+ Thêm nhãn "${input.value.trim()}"`;
+                    newItem.className = 'new-tag';
+                    newItem.onclick = () => addTag(input.value.trim());
+                    dropdown.appendChild(newItem);
+                }
+                
+                filteredTags.forEach(tag => {
+                    const item = document.createElement('div');
+                    item.textContent = tag;
+                    item.onclick = () => addTag(tag);
+                    dropdown.appendChild(item);
+                });
+                dropdown.style.display = dropdown.children.length > 0 ? 'block' : 'none';
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (input.value.trim()) addTag(input.value.trim());
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                const container = input.closest('.tags-input-container');
+                if (container && !container.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+            return { renderSelected };
+        }
+
+        // --- Currency & Start Date ---
+        function populateCurrencySelect() {
+            const select = document.getElementById('currencySelect');
+            select.innerHTML = Object.keys(currencyBehaviors).map(code => 
+                `<option value="${code}" ${code === currentCurrency ? 'selected' : ''}>
+                    ${code.toUpperCase()} (${currencyBehaviors[code].symbol})
+                </option>`
+            ).join('');
+        }
+        
+        async function saveCurrency() {
+            const currencyCode = document.getElementById('currencySelect').value;
+            try {
+                const response = await fetch('/api/currency/edit', {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currencyCode)
+                });
+                if (response.ok) {
+                    if(window.showToast) showToast('Đã lưu tiền tệ thành công', "success");
+                    currentCurrency = currencyCode;
+                } else {
+                    if(window.showToast) showToast('Lỗi khi lưu tiền tệ', "error");
+                }
+            } catch (error) {
+                console.error('Error saving currency:', error);
+                if(window.showToast) showToast('Lỗi khi lưu tiền tệ', "error");
+            }
+        }
+
+        function populateStartDateInput() {
+            document.getElementById("startDate").value = currentStartDate;
+        }
+
+        async function saveStartDate() {
+            const startDateValue = document.getElementById("startDate").value;
+            try {
+                const response = await fetch('/api/startdate/edit', {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(parseInt(startDateValue, 10))
+                });
+                if(window.showToast) {
+                   if(response.ok) showToast('Đã lưu ngày bắt đầu thành công', "success");
+                   else showToast('Lỗi khi lưu ngày bắt đầu', "error");
+                }
+            } catch (error) {
+                console.error('Error saving start date:', error);
+                if(window.showToast) showToast('Lỗi khi lưu ngày bắt đầu', "error");
+            }
+        }
+        
+        async function fetchAndRenderRecurringExpenses() {
+            try {
+                const response = await fetch('/api/recurring-expenses');
+                if (!response.ok) throw new Error('Failed to fetch recurring expenses');
+                recurringExpenses = await response.json() || [];
+                renderRecurringExpenses(recurringExpenses);
+            } catch (error) {
+                console.error('Error fetching recurring expenses:', error);
+                document.getElementById('recurring-expenses-list').innerHTML = '<p>Lỗi tải danh sách giao dịch định kỳ.</p>';
+            }
+        }
+
+        function findNextOccurrence(r) {
+            let nextDate = new Date(r.startDate);
+            const today = new Date();
+            if (nextDate >= today) return nextDate.toLocaleDateString('vi-VN');
+            if (r.occurrences > 0) {
+                let occurrencesCount = 0;
+                while (nextDate < today) {
+                    occurrencesCount++;
+                    if (occurrencesCount >= r.occurrences) return 'Đã kết thúc';
+                    switch(r.interval) {
+                        case 'daily': nextDate.setDate(nextDate.getDate() + 1); break;
+                        case 'weekly': nextDate.setDate(nextDate.getDate() + 7); break;
+                        case 'monthly': nextDate.setMonth(nextDate.getMonth() + 1); break;
+                        case 'yearly': nextDate.setFullYear(nextDate.getFullYear() + 1); break;
+                    }
+                }
+                return nextDate.toLocaleDateString('vi-VN');
+            } else { 
+                 while (nextDate < today) {
+                    switch(r.interval) {
+                        case 'daily': nextDate.setDate(nextDate.getDate() + 1); break;
+                        case 'weekly': nextDate.setDate(nextDate.getDate() + 7); break;
+                        case 'monthly': nextDate.setMonth(nextDate.getMonth() + 1); break;
+                        case 'yearly': nextDate.setFullYear(nextDate.getFullYear() + 1); break;
+                    }
+                }
+                return nextDate.toLocaleDateString('vi-VN');
+            }
+        }
+
+        function renderRecurringExpenses(recurring) {
+            const list = document.getElementById('recurring-expenses-list');
+            if (!recurring || recurring.length === 0) {
+                list.innerHTML = '<p>Chưa có giao dịch định kỳ nào.</p>';
+                return;
+            }
+            
+            const intervalMap = { daily: "Hằng ngày", weekly: "Hằng tuần", monthly: "Hằng tháng", yearly: "Hằng năm" };
+
+            list.innerHTML = `
+                <table class="expense-table">
+                    <thead><tr><th>Mô tả</th><th>Số tiền</th><th>Danh mục</th><th>Chu kỳ</th><th>Lần lặp tiếp theo</th><th></th></tr></thead>
+                    <tbody>
+                        ${recurring.map(r => `
+                            <tr>
+                                <td>${r.name}</td>
+                                <td>${formatCurrency(r.amount)}</td>
+                                <td>${r.category}</td>
+                                <td>${intervalMap[r.interval] || r.interval}</td>
+                                <td>${findNextOccurrence(r)}</td>
+                                <td>
+                                    <button class="edit-button" onclick="showRecurringEditModal('${r.id}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button class="delete-button" onclick="showRecurringDeleteModal('${r.id}')"><i class="fa-solid fa-trash-can"></i></button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        function showRecurringDeleteModal(id) {
+            recurringExpenseToDelete = id;
+            document.getElementById('deleteRecurringModal').classList.add('active');
+        }
+
+        function closeRecurringDeleteModal() {
+            recurringExpenseToDelete = null;
+            document.getElementById('deleteRecurringModal').classList.remove('active');
+        }
+
+        async function confirmRecurringDelete(removeAll) {
+            if (!recurringExpenseToDelete) return;
+            try {
+                const response = await fetch(`/api/recurring-expenses/delete?id=${recurringExpenseToDelete}&removeAll=${removeAll}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('Failed to delete recurring expense');
+                if(window.showToast) showToast('Đã xóa giao dịch định kỳ thành công', "success");
+                fetchAndRenderRecurringExpenses();
+            } catch (error) {
+                console.error('Error deleting recurring expense:', error);
+                if(window.showToast) showToast('Lỗi khi xóa giao dịch định kỳ', "error");
+            } finally {
+                closeRecurringDeleteModal();
+            }
+        }
+        
+        // --- HIỂN THỊ MODAL SỬA GIAO DỊCH (FIX TỶ GIÁ & NGÀY UTC) ---
+        function showRecurringEditModal(id) {
+            recurringExpenseToEdit = recurringExpenses.find(r => r.id === id);
+            if (!recurringExpenseToEdit) return;
+            
+            document.getElementById('editRecurringName').value = recurringExpenseToEdit.name;
+            
+            // FIX TỶ GIÁ: Hiển thị đúng số tiền theo tỷ giá chọn
+            const rate = exchangeRatesToVND[currentCurrency] || 1;
+            document.getElementById('editRecurringAmount').value = parseFloat((Math.abs(recurringExpenseToEdit.amount) / rate).toFixed(2));
+            
+            document.getElementById('editRecurringReportGain').checked = recurringExpenseToEdit.amount > 0;
+            document.getElementById('editRecurringCategory').value = recurringExpenseToEdit.category;
+            document.getElementById('editRecurringInterval').value = recurringExpenseToEdit.interval;
+            
+            // FIX NGÀY THÁNG: Lấy an toàn YYYY-MM-DD từ DB không lo lệch múi giờ
+            document.getElementById('editRecurringStartDate').value = recurringExpenseToEdit.startDate.split('T')[0];
+            
+            document.getElementById('editRecurringOccurrences').value = recurringExpenseToEdit.occurrences;
+            editFormSelectedTags = new Set(recurringExpenseToEdit.tags || []);
+            createTagInput('edit-tags-input', 'edit-selected-tags', 'edit-tags-dropdown', editFormSelectedTags).renderSelected();
+            document.getElementById('editRecurringModal').classList.add('active');
+        }
+        
+        function closeRecurringEditModal() {
+            recurringExpenseToEdit = null;
+            document.getElementById('editRecurringModal').classList.remove('active');
+        }
+
+        // --- SUBMIT CẬP NHẬT GIAO DỊCH (FIX TỶ GIÁ & NGÀY UTC) ---
+        async function confirmRecurringUpdate(updateAll) {
+            if (!recurringExpenseToEdit) return;
+            
+            // FIX TỶ GIÁ: Nhân với rate để lưu vào DB (VND)
+            const rate = exchangeRatesToVND[currentCurrency] || 1;
+            let amount = parseFloat(document.getElementById('editRecurringAmount').value) * rate;
+            if (!document.getElementById('editRecurringReportGain').checked) {
+                amount *= -1;
+            }
+
+            // FIX NGÀY THÁNG: Nối thêm T00:00:00Z để khóa chặt múi giờ UTC
+            const safeDateISO = new Date(document.getElementById('editRecurringStartDate').value + "T00:00:00Z").toISOString();
+
+            const updatedData = {
+                ...recurringExpenseToEdit,
+                name: document.getElementById('editRecurringName').value,
+                amount: amount,
+                category: document.getElementById('editRecurringCategory').value,
+                tags: Array.from(editFormSelectedTags),
+                interval: document.getElementById('editRecurringInterval').value,
+                startDate: safeDateISO,
+                occurrences: parseInt(document.getElementById('editRecurringOccurrences').value, 10)
+            };
+            
+            try {
+                const response = await fetch(`/api/recurring-expenses/edit?id=${recurringExpenseToEdit.id}&updateAll=${updateAll}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData)
+                });
+                if (!response.ok) throw new Error('Failed to update recurring expense');
+                if(window.showToast) showToast('Đã cập nhật giao dịch định kỳ thành công', "success");
+                fetchAndRenderRecurringExpenses();
+            } catch(error) {
+                console.error('Error updating recurring expense:', error);
+                if(window.showToast) showToast('Lỗi khi cập nhật giao dịch định kỳ', "error");
+            } finally {
+                closeRecurringEditModal();
+            }
+        }
+
+        // --- Import/Export CSV ---
+        async function handleCsvImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            const summaryDiv = document.getElementById('importSummary');
+
+            if(window.showToast) showToast('Đang nhập dữ liệu... Vui lòng đợi trong giây lát nếu file lớn.', "success");
+            summaryDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/expenses/import/csv', { method: 'POST', body: formData });
+                const result = await response.json();
+
+                if (response.ok) {
+                    if(window.showToast) showToast('Nhập dữ liệu thành công!', "success");
+                    summaryDiv.style.display = 'block';
+                    document.getElementById('summary-processed').textContent = result.total_processed;
+                    document.getElementById('summary-imported').textContent = result.imported;
+                    document.getElementById('summary-skipped').textContent = result.skipped;
+                    document.getElementById('summary-new-categories').textContent = (result.new_categories || []).join(', ') || 'Không có';
+                    await initialize();
+                } else {
+                    if(window.showToast) showToast(`Lỗi: ${result.error || 'Lỗi khi nhập CSV'}`, "error");
+                }
+            } catch (error) {
+                console.error('Error importing CSV:', error);
+                if(window.showToast) showToast('Lỗi: Đã xảy ra lỗi không xác định khi nhập dữ liệu.', "error");
+            } finally {
+                event.target.value = '';
+            }
+        }
+
+        document.getElementById('csv-export-file').addEventListener('click', async () => {
+            const btn = document.getElementById('csv-export-file');
+            const originalHTML = btn.innerHTML;
+            const token = localStorage.getItem('token');
+            if (!token) {
+                if(window.showToast) showToast('Lỗi: Bạn chưa đăng nhập. Vui lòng đăng nhập lại!', 'error');
+                setTimeout(() => window.location.href = '/login', 1500); 
+                return;
+            }
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xuất dữ liệu...';
+            btn.style.pointerEvents = 'none';
+            try {
+                const response = await fetch('/api/expenses/export/csv', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'ExpenseOwl_Data.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    if(window.showToast) showToast('Xuất dữ liệu thành công!', 'success');
+                } else if (response.status === 401) {
+                    if(window.showToast) showToast('Lỗi: Phiên đăng nhập hết hạn. Đang chuyển hướng...', 'error');
+                    localStorage.removeItem('token'); 
+                    setTimeout(() => window.location.href = '/login', 1500);
+                } else {
+                    if(window.showToast) showToast('Lỗi xử lý từ máy chủ.', 'error');
+                }
+            } catch (error) {
+                console.error('Lỗi xuất CSV:', error);
+                if(window.showToast) showToast('Lỗi kết nối khi xuất file', 'error');
+            } finally {
+                btn.innerHTML = originalHTML;
+                btn.style.pointerEvents = 'auto';
+            }
+        });
+
+        // --- Initialization ---
+        async function initialize() {
+            try {
+                const [configResponse, expensesResponse, recurringExpensesResponse] = await Promise.all([
+                    fetch('/api/config'), fetch('/api/expenses/'), fetch('/api/recurring-expenses')
+                ]);
+                if (!configResponse.ok) throw new Error('Failed to fetch configuration');
+                const config = await configResponse.json();
+                
+                let expenses = [];
+                if (expensesResponse.ok) expenses = await expensesResponse.json();
+                
+                let recurringExpensesList = [];
+                if (recurringExpensesResponse.ok) recurringExpensesList = await recurringExpensesResponse.json();
+
+                recurringExpenses = recurringExpensesList || [];
+                categories = [...(config.categories || [])];
+                currentCurrency = config.currency || 'usd';
+                currentStartDate = config.startDate || 1;
+                allTags.clear();
+                (expenses || []).forEach(exp => (exp.tags || []).forEach(tag => allTags.add(tag)));
+                (recurringExpenses || []).forEach(exp => (exp.tags || []).forEach(tag => allTags.add(tag)));
+
+                renderCategories();
+                populateCurrencySelect();
+                populateStartDateInput();
+                document.getElementById('recurringCategory').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                document.getElementById('editRecurringCategory').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                renderRecurringExpenses(recurringExpenses);
+
+                createTagInput('tags-input', 'selected-tags', 'tags-dropdown', addFormSelectedTags);
+                
+            } catch (error) {
+                console.error('Failed to initialize settings:', error);
+                if(window.showToast) showToast('Lỗi tải trang cài đặt', "error");
+            }
+        }
+        
+        // --- Theme Management ---
+        const themeSelect = document.getElementById('themeSelect');
+        const currentTheme = localStorage.getItem('theme') || 'system';
+        themeSelect.value = currentTheme;
+        function applyTheme(theme) {
+            if (theme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+        }
+        themeSelect.addEventListener('change', (e) => {
+            const selectedTheme = e.target.value;
+            localStorage.setItem('theme', selectedTheme);
+            applyTheme(selectedTheme);
+            if(window.showToast) showToast('Đã cập nhật giao diện.', "success");
+        });
+
+        // --- Event Listeners ---
+        document.getElementById('addCategory').addEventListener('click', addCategory);
+        document.getElementById('saveCurrency').addEventListener('click', saveCurrency);
+        document.getElementById('saveStartDate').addEventListener('click', saveStartDate);
+        document.getElementById('csv-import-file').addEventListener('change', handleCsvImport);
+        document.getElementById('newCategory').addEventListener('keypress', e => e.key === 'Enter' && addCategory());
+
+        // --- SUBMIT TẠO GIAO DỊCH ĐỊNH KỲ (FIX TỶ GIÁ & NGÀY UTC) ---
+        document.getElementById('recurringExpenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const isGain = document.getElementById('recurringReportGain').checked;
+            
+            // FIX TỶ GIÁ
+            const rate = exchangeRatesToVND[currentCurrency] || 1;
+            let amount = parseFloat(document.getElementById('recurringAmount').value) * rate;
+            if (!isGain) amount *= -1;
+
+            // FIX NGÀY UTC: Ép ngày nhập vào 00:00:00Z
+            const safeDateISO = new Date(document.getElementById('recurringStartDate').value + "T00:00:00Z").toISOString();
+
+            const formData = {
+                name: document.getElementById('recurringName').value,
+                amount: amount,
+                category: document.getElementById('recurringCategory').value,
+                tags: Array.from(addFormSelectedTags),
+                interval: document.getElementById('recurringInterval').value,
+                startDate: safeDateISO,
+                occurrences: parseInt(document.getElementById('recurringOccurrences').value, 10)
+            };
+
+            try {
+                const response = await fetch('/api/recurring-expenses/', {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (response.ok) {
+                    if(window.showToast) showToast('Đã thêm giao dịch định kỳ thành công!', "success");
+                    document.getElementById('recurringExpenseForm').reset();
+                    document.getElementById('selected-tags').innerHTML = '';
+                    addFormSelectedTags.clear();
+                    fetchAndRenderRecurringExpenses();
+                } else {
+                    const error = await response.json();
+                    if(window.showToast) showToast(`Lỗi: ${error.error || 'Lỗi khi thêm giao dịch định kỳ'}`, "error");
+                }
+            } catch (error) {
+                console.error('Error adding recurring expense:', error);
+                if(window.showToast) showToast('Lỗi: Không thể thêm giao dịch định kỳ', "error");
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', initialize);
+        window.removeCategory = removeCategory;
+        window.showRecurringDeleteModal = showRecurringDeleteModal;
+        window.closeRecurringDeleteModal = closeRecurringDeleteModal;
+        window.confirmRecurringDelete = confirmRecurringDelete;
+        window.showRecurringEditModal = showRecurringEditModal;
+        window.closeRecurringEditModal = closeRecurringEditModal;
+        window.confirmRecurringUpdate = confirmRecurringUpdate;
+    </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# Môi trường ảo Python
+venv/
+.venv/
+env/
+.env
+Lib/
+# Chỉ bỏ qua các thư mục Scripts sinh ra bởi venv (tránh vô tình ignore thư mục `scripts` của project)
+venv/Scripts/
+.venv/Scripts/
+env/Scripts/
+
+# Mật khẩu & API Keys
+# `.env` chứa khóa — đã được ignore
+.env
+
+# File cache của Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# File Cơ sở dữ liệu SQLite cục bộ
+*.db
+*.sqlite3
+
+# Các file hệ thống tự sinh ra
+.DS_Store
+.vscode/
+requirements.txt

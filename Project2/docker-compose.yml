@@ -1,0 +1,122 @@
+
+
+services:
+  # ========================================
+  # PHẦN 1: HẠ TẦNG LÕI (INFRASTRUCTURE)
+  # ========================================
+  postgres_db:
+    image: postgres:15
+    container_name: expenseowl_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: default_db
+    ports:
+      - "5435:5432"  # <--- Đổi hẳn thành 5435
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: expenseowl_kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+  n8n:
+    image: n8nio/n8n
+    container_name: expenseowl_n8n
+    ports: 
+      - "5680:5678"  # <-- Đổi 5679 thành 5680  # <-- Đổi số 5678 ở phía trước thành 5679
+
+  grafana:
+    image: grafana/grafana
+    container_name: expenseowl_grafana
+    ports:
+      - "3000:3000"
+
+  # ========================================
+  # PHẦN 2: CÁC MICROSERVICES PYTHON
+  # ========================================
+  user-service:
+    build: ./user-service
+    container_name: user_service
+    environment:
+      - DATABASE_URL=postgresql://admin:secret@postgres_db:5432/expenseowl_user_db
+    depends_on:
+      - postgres_db
+
+  transaction-service:
+    build: ./transaction-service
+    container_name: transaction_service
+    environment:
+      - DATABASE_URL=postgresql://admin:secret@postgres_db:5432/expenseowl_transaction_db
+      - KAFKA_BROKER=kafka:9092
+      - USER_SERVICE_URL=http://user-service:8000
+    depends_on:
+      - postgres_db
+      - kafka
+
+  budget-service:
+    build: ./budget-service
+    container_name: budget_service
+    environment:
+      - DATABASE_URL=postgresql://admin:secret@postgres_db:5432/expenseowl_budget_db
+      - KAFKA_BROKER=kafka:9092
+    depends_on:
+      - postgres_db
+      - kafka
+
+  ai-service:
+    build: ./ai-service
+    container_name: ai_service
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY} # Truyền key từ môi trường ngoài vào
+      - USER_SERVICE_URL=http://user-service:8000
+      - TXN_SERVICE_URL=http://transaction-service:8000
+      - BUDGET_SERVICE_URL=http://budget-service:8000
+    depends_on:
+      - user-service
+      - transaction-service
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification_service
+    environment:
+      - KAFKA_BROKER=kafka:9092
+    depends_on:
+      - kafka
+
+  # ========================================
+  # PHẦN 3: GATEWAY & FRONTEND
+  # ========================================
+  api-gateway:
+    build: ./api-gateway
+    container_name: api_gateway
+    ports:
+      - "8000:8000" # Cổng ra công chúng duy nhất cho API
+    environment:
+      - USER_SERVICE_URL=http://user-service:8000
+      - TXN_SERVICE_URL=http://transaction-service:8000
+      - BUDGET_SERVICE_URL=http://budget-service:8000
+      - AI_SERVICE_URL=http://ai-service:8000
+
+  frontend-service:
+    build: ./frontend-service
+    container_name: frontend_service
+    ports:
+      - "3001:8000" # Giao diện web chạy ở cổng 3001
+    depends_on:
+      - api-gateway
+
+volumes:
+  pgdata:
