@@ -36,6 +36,17 @@ async def serve_history(request: Request):
 async def serve_profile(request: Request):
     return templates.TemplateResponse(request=request, name="profile.html")
 
-@app.get("/trends", response_class=HTMLResponse)
-async def serve_trends(request: Request):
-    return templates.TemplateResponse(request=request, name="trends.html")
+@app.get("/trends")
+def trends_page(request: Request):
+    # Đảm bảo trong thư mục templates đã có file trends.html nhé!
+    return templates.TemplateResponse(request=request, name="trend.html")
+
+@app.get("/suggestions")
+def suggestions_page(request: Request):
+    # Đảm bảo trong thư mục templates đã có file suggestions.html
+    return templates.TemplateResponse(request=request, name="suggestions.html")
+
+@app.get("/settings")
+def settings_page(request: Request):
+    # Đảm bảo trong thư mục templates đã có file settings.html
+    return templates.TemplateResponse(request=request, name="settings.html")
