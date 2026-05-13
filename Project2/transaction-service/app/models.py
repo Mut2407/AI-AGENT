@@ -16,7 +16,9 @@ class Transaction(Base):
     
     # CHỈ LƯU ID BÌNH THƯỜNG, KHÔNG DÙNG FOREIGN KEY NỮA
     jar_id = Column(Integer, nullable=True) 
-    user_id = Column(Integer, index=True) # Nên đánh index để query cho nhanh
+    
+    # 🚀 ĐÃ SỬA: Chuyển Integer thành String
+    user_id = Column(String, index=True) 
 
 class RecurringTransaction(Base):
     __tablename__ = "recurring_transactions"
@@ -30,5 +32,5 @@ class RecurringTransaction(Base):
     startDate = Column(DateTime)
     occurrences = Column(Integer) 
 
-    # CHỈ LƯU ID BÌNH THƯỜNG
-    user_id = Column(Integer, index=True)
+    # 🚀 ĐÃ SỬA: Chuyển Integer thành String
+    user_id = Column(String, index=True)

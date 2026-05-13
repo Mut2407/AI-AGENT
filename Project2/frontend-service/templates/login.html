@@ -164,7 +164,8 @@
 
                 if (res.ok) {
                     const data = await res.json();
-                    localStorage.setItem('token', data.access_token);
+                    // Phải là 'access_token' để khớp với functions.js ở trên
+                    localStorage.setItem('access_token', data.access_token); 
                     window.location.href = '/'; 
                 } else { 
                     const errorData = await res.json();

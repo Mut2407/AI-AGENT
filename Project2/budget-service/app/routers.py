@@ -135,3 +135,46 @@ def setup_budgets_bulk(payload: dict = Body(...), db: Session = Depends(get_db),
 
     db.commit()
     return {"message": "Đã cập nhật ngân sách thành công!"}
+
+# ==========================================
+# 3. TỔNG HỢP SỐ LIỆU (DASHBOARD SUMMARY)
+# ==========================================
+from sqlalchemy import func
+
+@router.get("/dashboard-summary")
+def get_dashboard_summary(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """
+    Hàm này lấy tổng số dư các hũ và tổng chi tiêu hiện tại
+    để Frontend vẽ biểu đồ tổng quan.
+    """
+    # 1. Tính tổng số dư hiện có trong tất cả các hũ
+    total_balance_query = db.query(func.sum(models.Jar.balance)).filter(
+        models.Jar.user_id == current_user["id"]
+    ).scalar()
+    
+    total_balance = float(total_balance_query) if total_balance_query else 0.0
+
+    # 2. Tính tổng số tiền đã chi tiêu trong tháng này
+    # (Vì bảng Budget lưu spent_amount nên ta cộng tổng cái đó lại)
+    current_month = datetime.now().month
+    current_year = datetime.now().year
+    
+    total_spent_query = db.query(func.sum(models.Budget.spent_amount)).filter(
+        models.Budget.user_id == current_user["id"],
+        func.extract('month', models.Budget.start_date) == current_month,
+        func.extract('year', models.Budget.start_date) == current_year
+    ).scalar()
+    
+    total_spent = float(total_spent_query) if total_spent_query else 0.0
+
+    # Trả về kết quả cho Frontend
+    return {
+        "total_balance": total_balance,
+        "total_spent": total_spent,
+        "active_jars_count": db.query(models.Jar).filter(models.Jar.user_id == current_user["id"]).count(),
+        "active_budgets_count": db.query(models.Budget).filter(
+            models.Budget.user_id == current_user["id"],
+            func.extract('month', models.Budget.start_date) == current_month,
+            func.extract('year', models.Budget.start_date) == current_year
+        ).count()
+    }

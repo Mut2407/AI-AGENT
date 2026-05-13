@@ -1,9 +1,12 @@
-if (!localStorage.getItem('token') && window.location.pathname !== '/login') {
+// SỬA LẠI THÀNH THẾ NÀY:
+if (!localStorage.getItem('access_token') && 
+    window.location.pathname !== '/login' && 
+    window.location.pathname !== '/register') {
     window.location.href = '/login';
 }
 
 function logout() {
-    localStorage.removeItem('token');
+    localStorage.removeItem('access_token'); // Đổi 'token' thành 'access_token'
     window.location.href = '/login';
 }
 
@@ -191,7 +194,7 @@ window.fetch = async (...args) => {
         // 2. Tự động thêm Token (chỉ bỏ qua các route liên quan đến xác thực auth)
         if (!resource.includes('/auth/')) {
             config = config || {};
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('access_token');
 
             if (token) {
                 config.headers = {
@@ -281,7 +284,7 @@ async function analyzeTrends() {
     aiAbortController = new AbortController();
 
     try {
-        const token = localStorage.getItem('token'); 
+        const token = localStorage.getItem('access_token'); 
         const response = await fetch('/api/ai/analyze-trends', {
             method: 'GET',
             headers: { 'Authorization': 'Bearer ' + token },

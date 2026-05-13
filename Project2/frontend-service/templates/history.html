@@ -400,7 +400,7 @@
         }
 
         async function loadJarsForSelect() {
-            const token = localStorage.getItem('token');
+            const token = localStorage.setItem("access_token", data.access_token);
             const res = await fetch('/api/planning/jars', { headers: { 'Authorization': `Bearer ${token}` } });
             if (res.ok) {
                 const jars = await res.json();
@@ -1065,7 +1065,7 @@
 
             if (!isGain && selectedCategory) {
                 try {
-                    const token = localStorage.getItem('token');
+                    const token = localStorage.setItem("access_token", data.access_token);
                     const resBudgets = await fetch('/api/planning/budgets', { headers: { 'Authorization': `Bearer ${token}` } });
                     if (resBudgets.ok) {
                         const currentBudgets = await resBudgets.json();

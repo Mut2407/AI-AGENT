@@ -11,8 +11,8 @@ class Budget(Base):
     start_date = Column(Date)
     end_date = Column(Date) 
     
-    # Chỉ lưu ID bình thường, không dùng ForeignKey
-    user_id = Column(Integer, index=True)
+    # 🚀 ĐÃ SỬA: Chuyển Integer thành String
+    user_id = Column(String, index=True)
 
 class Jar(Base):
     __tablename__ = "jars"
@@ -24,5 +24,5 @@ class Jar(Base):
     color = Column(String, default="#8a2be2")        
     icon = Column(String, default="fa-piggy-bank") 
     
-    # Chỉ lưu ID bình thường, không dùng ForeignKey
-    user_id = Column(Integer, index=True)
+    # 🚀 ĐÃ SỬA: Chuyển Integer thành String
+    user_id = Column(String, index=True)

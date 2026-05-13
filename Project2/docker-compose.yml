@@ -1,4 +1,4 @@
-
+version: '3.8'
 
 services:
   # ========================================
@@ -9,11 +9,13 @@ services:
     container_name: expenseowl_postgres
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: default_db
     ports:
-      - "5435:5432"  # <--- Đổi hẳn thành 5435
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
 
   kafka:
     image: apache/kafka:3.7.0
@@ -36,7 +38,7 @@ services:
     image: n8nio/n8n
     container_name: expenseowl_n8n
     ports: 
-      - "5680:5678"  # <-- Đổi 5679 thành 5680  # <-- Đổi số 5678 ở phía trước thành 5679
+      - "5680:5678"
 
   grafana:
     image: grafana/grafana
@@ -51,7 +53,8 @@ services:
     build: ./user-service
     container_name: user_service
     environment:
-      - DATABASE_URL=postgresql://admin:secret@postgres_db:5432/expenseowl_user_db
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/expenseowl_user_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     depends_on:
       - postgres_db
 
@@ -59,7 +62,8 @@ services:
     build: ./transaction-service
     container_name: transaction_service
     environment:
-      - DATABASE_URL=postgresql://admin:secret@postgres_db:5432/expenseowl_transaction_db
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/expenseowl_transaction_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - KAFKA_BROKER=kafka:9092
       - USER_SERVICE_URL=http://user-service:8000
     depends_on:
@@ -70,7 +74,8 @@ services:
     build: ./budget-service
     container_name: budget_service
     environment:
-      - DATABASE_URL=postgresql://admin:secret@postgres_db:5432/expenseowl_budget_db
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/expenseowl_budget_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - KAFKA_BROKER=kafka:9092
     depends_on:
       - postgres_db
@@ -80,7 +85,7 @@ services:
     build: ./ai-service
     container_name: ai_service
     environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY} # Truyền key từ môi trường ngoài vào
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - USER_SERVICE_URL=http://user-service:8000
       - TXN_SERVICE_URL=http://transaction-service:8000
       - BUDGET_SERVICE_URL=http://budget-service:8000
@@ -103,7 +108,7 @@ services:
     build: ./api-gateway
     container_name: api_gateway
     ports:
-      - "8000:8000" # Cổng ra công chúng duy nhất cho API
+      - "8000:8000"
     environment:
       - USER_SERVICE_URL=http://user-service:8000
       - TXN_SERVICE_URL=http://transaction-service:8000
@@ -114,7 +119,7 @@ services:
     build: ./frontend-service
     container_name: frontend_service
     ports:
-      - "3001:8000" # Giao diện web chạy ở cổng 3001
+      - "3001:8000"
     depends_on:
       - api-gateway
 

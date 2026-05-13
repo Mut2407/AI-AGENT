@@ -9,6 +9,9 @@ app = FastAPI(title="ExpenseOwl - User Service")
 
 app.include_router(user_router, prefix="/api/auth", tags=["Users"])
 
-@app.get("/health")
-def health_check():
-    return {"status": "User Service is running perfectly!"}
+@app.get("/api/config")
+@app.get("/api/config/")
+@app.get("/api/config/config") # Thêm cái này để bắt trường hợp Gateway ghép dư chữ
+@app.get("/api/config/config/")
+def get_user_config():
+    return {"is_new_user": False}
