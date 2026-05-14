@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Tài Khoản | ExpenseOwl</title>
+    <title>Tài Khoản</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
     <script>
@@ -245,11 +245,14 @@
         let currentUserData = {};
 
         async function loadProfile() {
-            const token = localStorage.getItem('token');
+            // 🚀 ĐÃ SỬA: Tìm cả 2 tên chìa khóa
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             if (!token) { window.location.href = '/login'; return; }
             
             try {
-                const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` }});
+                const res = await fetch(`/api/auth/me?t=${new Date().getTime()}`, { 
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 if (res.ok) {
                     const data = await res.json();
                     currentUserData = data; 
@@ -268,7 +271,10 @@
                     document.getElementById('userGoal').textContent = data.financial_goal || 'Chưa xác định';
                     if (data.full_name) document.getElementById('userInitial').textContent = data.full_name.charAt(0).toUpperCase();
                 } else if (res.status === 401) {
-                    localStorage.removeItem('token'); window.location.href = '/login';
+                    // Nếu token hết hạn, xóa cả 2 tên cho chắc
+                    localStorage.removeItem('token'); 
+                    localStorage.removeItem('access_token');
+                    window.location.href = '/login';
                 }
             } catch (error) { console.error("Lỗi:", error); }
         }
@@ -312,7 +318,7 @@
                 return;
             }
 
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             btn.disabled = true;
@@ -356,7 +362,7 @@
             if (newPass.length < 6) { if(window.showToast) showToast("Mật khẩu mới phải từ 6 ký tự!", "error"); return; }
             if (newPass !== confirmPass) { if(window.showToast) showToast("Mật khẩu xác nhận không khớp!", "error"); return; }
 
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
 

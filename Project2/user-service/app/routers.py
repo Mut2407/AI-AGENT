@@ -3,6 +3,13 @@ from sqlalchemy.orm import Session
 import models, schemas, auth
 from database import get_db
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
+from typing import Optional
+from fastapi import HTTPException, status
+from auth import get_current_user, verify_password, get_password_hash
+import models
+from datetime import datetime # 🚀 Nhớ thêm dòng này ở đỉnh file
+
 
 router = APIRouter()
 
@@ -50,3 +57,53 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 @router.get("/me", response_model=schemas.UserResponse)
 def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
+
+# ==========================================
+# KHAI BÁO CẤU TRÚC DỮ LIỆU NHẬN VÀO
+# ==========================================
+class ProfileUpdate(BaseModel):
+    full_name: str
+    dob: Optional[str] = None
+    gender: Optional[str] = None
+
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
+
+# ==========================================
+# API CẬP NHẬT TÀI KHOẢN (Đổi tên, ngày sinh, giới tính)
+# ==========================================
+@router.put("/me/update")
+def update_profile_info(profile_data: ProfileUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    
+    user.full_name = profile_data.full_name
+    user.gender = profile_data.gender
+    
+    # 🚀 Chuyển đổi String thành đối tượng Date của Python trước khi lưu
+    if profile_data.dob:
+        try:
+            user.dob = datetime.strptime(profile_data.dob, '%Y-%m-%d').date()
+        except Exception as e:
+            print(f"Lỗi định dạng ngày: {e}")
+            
+    db.commit()
+    db.refresh(user) # Làm tươi dữ liệu
+    return {"message": "Cập nhật thông tin thành công"}
+
+# ==========================================
+# API ĐỔI MẬT KHẨU
+# ==========================================
+@router.put("/change-password")
+def change_password(pass_data: PasswordChange, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    
+    # 1. Kiểm tra mật khẩu cũ có đúng không (Lưu ý: thay hàm verify_password bằng hàm kiểm tra của em)
+    if not verify_password(pass_data.old_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng!")
+        
+    # 2. Mã hóa mật khẩu mới (Lưu ý: thay hàm get_password_hash bằng hàm mã hóa của em)
+    user.hashed_password = get_password_hash(pass_data.new_password)
+    db.commit()
+    
+    return {"message": "Đổi mật khẩu thành công"}
