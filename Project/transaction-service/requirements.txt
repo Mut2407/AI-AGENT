@@ -6,3 +6,5 @@ PyJWT
 python-dotenv
 python-multipart
 aiokafka
+pydantic
+jinja2
