@@ -1,24 +1,31 @@
 import os
-import urllib.parse
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# 1. Tải các biến môi trường từ file .env lên hệ thống
 load_dotenv()
 
-# 2. Lấy mật khẩu từ file .env (Không còn lộ trên code nữa)
-my_password = os.getenv("DB_PASSWORD")
+# Prefer DATABASE_URL (matches docker-compose). Fallback to building from parts.
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Kiểm tra an toàn: Đảm bảo đã lấy được mật khẩu
-if not my_password:
-    raise ValueError("Không tìm thấy DB_PASSWORD trong file .env")
+if not SQLALCHEMY_DATABASE_URL:
+    db_user = os.getenv("DB_USER", "postgres")
+    db_password = os.getenv("DB_PASSWORD")
+    db_host = os.getenv("DB_HOST", "db")
+    db_port = os.getenv("DB_PORT", "5432")
+    db_name = os.getenv("DB_NAME", "expenseowl_db")
 
-# 3. Tự động mã hóa mật khẩu an toàn
-encoded_password = urllib.parse.quote_plus(my_password)
+    if not db_password:
+        raise ValueError("Không tìm thấy DATABASE_URL hoặc DB_PASSWORD trong env")
 
-# 4. Gắn vào chuỗi URL
-SQLALCHEMY_DATABASE_URL = f"postgresql://postgres:{encoded_password}@localhost:5432/expenseowl_db"
+    SQLALCHEMY_DATABASE_URL = (
+        f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    )
+
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
+        "postgres://", "postgresql://", 1
+    )
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
