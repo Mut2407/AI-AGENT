@@ -50,3 +50,23 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 @router.get("/me", response_model=schemas.UserResponse)
 def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
+
+@router.put("/me/update", response_model=schemas.UserResponse)
+def update_user_me(
+    user_update: schemas.UserUpdateProfile, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    # Cập nhật các trường nếu có dữ liệu mới gửi lên
+    if user_update.full_name is not None:
+        current_user.full_name = user_update.full_name
+    if user_update.email is not None:
+        current_user.email = user_update.email
+    if user_update.gender is not None:
+        current_user.gender = user_update.gender
+    if user_update.dob is not None:
+        current_user.dob = user_update.dob
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user

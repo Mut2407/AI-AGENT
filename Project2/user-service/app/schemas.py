@@ -17,6 +17,11 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     id: int
     username: str
+    full_name: str | None = None 
+    email: str | None = None     
+    gender: str | None = None    
+    dob: date | None = None
+    
     model_config = ConfigDict(from_attributes=True) 
 
 class Token(BaseModel):
@@ -50,6 +55,9 @@ class UserOut(BaseModel):
         from_attributes = True 
 
 class UserUpdateProfile(BaseModel):
-    full_name: str
-    dob: str | None = None
-    gender: str | None = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    gender: Optional[str] = None
+    dob: Optional[date] = None
+
+    model_config = ConfigDict(from_attributes=True)
