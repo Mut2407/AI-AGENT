@@ -52,48 +52,51 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadCurrencyConfig() {
     try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('/api/config', { headers: { 'Authorization': `Bearer ${token}` } });
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+        
+        // 🚀 Đã sửa lỗi cú pháp ở dòng này!
+        const res = await fetch('/api/config', { 
+            headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        
         if (res.ok) {
             const config = await res.json();
             userCurrency.code = (config.currency || 'VND').toLowerCase();
-
-            let expenseCategories = [];
-            let incomeCategories = [];
             
-            if (config.expenseCategories && config.incomeCategories) {
-                expenseCategories = config.expenseCategories;
-                incomeCategories = config.incomeCategories;
-            } else if (config.categories) {
-                expenseCategories = config.categories;
-                incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
-            }
+            const localeMap = { 'vnd': 'vi-VN', 'usd': 'en-US', 'eur': 'de-DE', 'jpy': 'ja-JP' };
+            userCurrency.locale = localeMap[userCurrency.code] || 'en-US';
+
+            const rateToVnd = window.exchangeRatesToVND[userCurrency.code] || 1;
+            userCurrency.rate = 1 / rateToVnd;
+
+            let expenseCategories = config.expenseCategories || config.categories || [];
+            let incomeCategories = config.incomeCategories || ["Lương", "Thưởng", "Đầu tư", "Khác"];
             initialCategories = [...expenseCategories, ...incomeCategories];
+        } else {
+            console.warn("Lỗi 401: Sai token.");
         }
-        const localeMap = { 'vnd': 'vi-VN', 'usd': 'en-US', 'eur': 'de-DE', 'jpy': 'ja-JP' };
-        userCurrency.locale = localeMap[userCurrency.code] || 'en-US';
-        const rateToVnd = window.exchangeRatesToVND[userCurrency.code] || 1;
-        userCurrency.rate = 1 / rateToVnd;
-    } catch (e) { console.warn("Dùng mặc định VND.", e); }
+    } catch (e) { 
+        console.warn("Lỗi tải cấu hình, dùng mặc định VND", e);
+        userCurrency.rate = 1.0; 
+    }
 }
 
 async function fetchTransactionsForTrends() {
     try {
-        const token = localStorage.getItem('token');
+        // Đảm bảo load cấu hình xong xuôi mới đi lấy giao dịch
+        await loadCurrencyConfig(); 
+
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
         const response = await fetch('/api/expenses/', { headers: { 'Authorization': `Bearer ${token}` } });
+        
         if (response.ok) {
             const rawTxns = await response.json();
-
+            
+            // 🚀 Lúc này userCurrency.rate chắc chắn đã là 1/25400 nếu là USD
             allTrendTransactions = rawTxns.map(t => {
-                let catName = t.category || 'Khác';
-                const exactMatch = initialCategories.find(c => c === catName);
-                if (!exactMatch) {
-                    const lowerMatch = initialCategories.find(c => c.toLowerCase() === catName.toLowerCase());
-                    if (lowerMatch) {
-                        catName = lowerMatch;
-                    }
-                }
-                return { ...t, amount: t.amount * userCurrency.rate, category: catName };
+                const rawAmount = parseFloat(t.amount) || 0;
+                const convertedAmount = rawAmount * userCurrency.rate;
+                return { ...t, amount: convertedAmount, category: t.category || 'Khác' };
             });
 
             const savedColors = JSON.parse(localStorage.getItem('customCategoryColors') || '{}');
@@ -763,6 +766,10 @@ function renderTopCategories(curTxns, prevTxns, period, titleSuffix, useCutoffFo
     }).join('');
 }
 
+// Trả lại hàm format ban đầu
 function formatCurrencySafe(amount) {
-    return new Intl.NumberFormat(userCurrency.locale, { style: 'currency', currency: userCurrency.code.toUpperCase() }).format(amount);
+    return new Intl.NumberFormat(userCurrency.locale, { 
+        style: 'currency', 
+        currency: userCurrency.code.toUpperCase() 
+    }).format(amount);
 }

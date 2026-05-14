@@ -17,8 +17,7 @@ app.add_middleware(
 
 # ... (Giữ nguyên đoạn code cấu hình SERVICES và route bên dưới của em) ...
 
-# Đọc địa chỉ các service từ biến môi trường (Docker)
-# Đọc địa chỉ các service từ biến môi trường (Docker)
+
 SERVICES = {
     "users": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
     "expenses": os.getenv("TXN_SERVICE_URL", "http://localhost:8002"),
@@ -26,9 +25,14 @@ SERVICES = {
     "planning": os.getenv("BUDGET_SERVICE_URL", "http://localhost:8003"),
     "ai": os.getenv("AI_SERVICE_URL", "http://localhost:8004"),
     "auth": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
+    "config": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
     
-    # 🚀 THÊM DÒNG NÀY ĐỂ TRỪ TÀ LỖI 404
-    "config": os.getenv("USER_SERVICE_URL", "http://localhost:8001"), 
+    # 🚀 THÊM 5 DÒNG NÀY ĐỂ MỞ KHÓA TOÀN BỘ TRANG CÀI ĐẶT
+    "currency": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
+    "startdate": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
+    "categories": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
+    "email-sync": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
+    "profile": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
 }
 
 # Client HTTP bất đồng bộ để chuyển tiếp request
