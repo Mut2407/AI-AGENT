@@ -925,7 +925,11 @@
             try {
                 let config = { expenseCategories: ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"], incomeCategories: ["Lương", "Thưởng", "Đầu tư", "Khác"], currency: "usd", startDate: 1 };
                 try {
-                    const configResponse = await fetch('/api/config');
+                    // 🚀 Tự tìm chìa khóa và gắn vào yêu cầu lấy cấu hình
+                    const tokenConfig = localStorage.getItem('token') || localStorage.getItem('access_token');
+                    const configResponse = await fetch('/api/config', { 
+                        headers: { 'Authorization': `Bearer ${tokenConfig}` } 
+                    });
                     if (configResponse.ok) {
                         const fetchedConfig = await configResponse.json();
                         if (fetchedConfig) config = {...config, ...fetchedConfig};
@@ -955,13 +959,7 @@
                 currentCurrency = window.currentCurrency;
                 startDate = config.startDate || 1;
                 
-                const currentToken = localStorage.getItem("token") || localStorage.getItem("access_token");
-                
-                // Gắn chìa khóa vào Header khi gõ cửa Backend
-                const response = await fetch('/api/expenses/', { 
-                    headers: { 'Authorization': `Bearer ${currentToken}` } 
-                });
-                
+                const response = await fetch('/api/expenses/');
                 if (!response.ok) throw new Error('Failed to fetch data');
                 const rawData = await response.json();
                 let fetchedExpenses = Array.isArray(rawData) ? rawData : (rawData && Array.isArray(rawData.expenses) ? rawData.expenses : []);
