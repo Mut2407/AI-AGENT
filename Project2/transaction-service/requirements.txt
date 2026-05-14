@@ -7,3 +7,4 @@ python-dotenv
 kafka-python
 python-jose[cryptography]
 python-multipart
+kafka-python

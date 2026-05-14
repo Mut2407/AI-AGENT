@@ -400,18 +400,32 @@
         }
 
         async function loadJarsForSelect() {
-            const token = localStorage.setItem("access_token", data.access_token);
-            const res = await fetch('/api/planning/jars', { headers: { 'Authorization': `Bearer ${token}` } });
-            if (res.ok) {
-                const jars = await res.json();
-                globalJars = jars; 
-                const select = document.getElementById('jar_id');
-                if (select) {
-                    select.innerHTML = '<option value="">-- Chọn Quỹ để rút --</option>';
-                    jars.forEach(j => {
-                        select.innerHTML += `<option value="${j.id}">${j.name} (${formatCurrency(j.balance)})</option>`;
-                    });
+            // 🚀 ĐÃ SỬA: Dùng getItem để lấy token ra
+            const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+            
+            if (!token) {
+                console.warn("Không tìm thấy token, không thể tải danh sách Hũ.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/planning/jars', { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                });
+                
+                if (res.ok) {
+                    const jars = await res.json();
+                    globalJars = jars; 
+                    const select = document.getElementById('jar_id');
+                    if (select) {
+                        select.innerHTML = '<option value="">-- Chọn Quỹ để rút --</option>';
+                        jars.forEach(j => {
+                            select.innerHTML += `<option value="${j.id}">${j.name} (${formatCurrency(j.balance)})</option>`;
+                        });
+                    }
                 }
+            } catch (error) {
+                console.error("Lỗi khi tải danh sách Hũ:", error);
             }
         }
 
@@ -941,7 +955,13 @@
                 currentCurrency = window.currentCurrency;
                 startDate = config.startDate || 1;
                 
-                const response = await fetch('/api/expenses/');
+                const currentToken = localStorage.getItem("token") || localStorage.getItem("access_token");
+                
+                // Gắn chìa khóa vào Header khi gõ cửa Backend
+                const response = await fetch('/api/expenses/', { 
+                    headers: { 'Authorization': `Bearer ${currentToken}` } 
+                });
+                
                 if (!response.ok) throw new Error('Failed to fetch data');
                 const rawData = await response.json();
                 let fetchedExpenses = Array.isArray(rawData) ? rawData : (rawData && Array.isArray(rawData.expenses) ? rawData.expenses : []);
@@ -970,7 +990,7 @@
                 const savedColors = JSON.parse(localStorage.getItem('customCategoryColors') || '{}');
                 const uniqueCategories = [...new Set(allExpenses.map(exp => exp.category))];
                 initialCategories.forEach(c => { if(!uniqueCategories.includes(c)) uniqueCategories.push(c); });
-
+                const colorPalette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#F7464A', '#8a2be2'];
                 uniqueCategories.forEach((category, index) => {
                     if (savedColors[category]) { 
                         categoryColors[category] = savedColors[category]; 
@@ -979,6 +999,7 @@
                         if (foundKey) {
                             categoryColors[category] = savedColors[foundKey];
                         } else if (!categoryColors[category]) { 
+                            // Giờ thì colorPalette đã có mặt để phục vụ!
                             categoryColors[category] = colorPalette[index % colorPalette.length] || "#8a2be2"; 
                         }
                     }
@@ -1065,7 +1086,8 @@
 
             if (!isGain && selectedCategory) {
                 try {
-                    const token = localStorage.setItem("access_token", data.access_token);
+                    // 🚀 ĐÃ SỬA: Chuyển setItem thành getItem và bỏ chữ data.access_token đi
+                    const token = localStorage.getItem("access_token");
                     const resBudgets = await fetch('/api/planning/budgets', { headers: { 'Authorization': `Bearer ${token}` } });
                     if (resBudgets.ok) {
                         const currentBudgets = await resBudgets.json();

@@ -9,12 +9,13 @@ import re
 from datetime import datetime
 from decimal import Decimal
 
+
 # Import nội bộ của Transaction Service
 import models, schemas
 from database import get_db
 
 # Giả định em đã có file kafka_pro.py như Cú Mèo hướng dẫn ở bước trước
-# import kafka_pro 
+import kafka_pro 
 
 # Giả định hàm get_current_user giờ đây chỉ giải mã JWT để lấy user_id 
 # (Không query Database để lấy cả bảng User nữa vì bảng User nằm ở service khác)
@@ -66,13 +67,13 @@ def create_transaction(
     db.refresh(db_transaction)
 
     # 🚀 MICROSERVICE MAGIC: Gửi event qua Kafka thay vì gọi DB trực tiếp
-    # kafka_pro.send_transaction_event("TRANSACTION_CREATED", {
-    #     "id": db_transaction.id,
-    #     "user_id": db_transaction.user_id,
-    #     "jar_id": db_transaction.jar_id,
-    #     "amount": float(db_transaction.amount),
-    #     "category": db_transaction.category
-    # })
+    kafka_pro.send_transaction_event("TRANSACTION_CREATED", {
+         "id": db_transaction.id,
+         "user_id": db_transaction.user_id,
+         "jar_id": db_transaction.jar_id,
+         "amount": float(db_transaction.amount),
+         "category": db_transaction.category
+    })
 
     return db_transaction
 
