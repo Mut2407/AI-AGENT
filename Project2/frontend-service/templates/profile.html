@@ -245,38 +245,45 @@
         let currentUserData = {};
 
         async function loadProfile() {
-            // 🚀 ĐÃ SỬA: Tìm cả 2 tên chìa khóa
-            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-            if (!token) { window.location.href = '/login'; return; }
-            
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
             try {
-                const res = await fetch(`/api/auth/me?t=${new Date().getTime()}`, { 
-                    headers: { 'Authorization': `Bearer ${token}` }
+                // Gọi qua API Gateway (Cổng 8000)
+                const response = await fetch('http://localhost:8000/api/auth/me', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    currentUserData = data; 
+
+                if (response.ok) {
+                    const userData = await response.json();
                     
-                    document.getElementById('displayFullName').textContent = data.full_name;
-                    document.getElementById('displayUsername').textContent = '@' + data.username;
-                    document.getElementById('userEmail').textContent = data.email;
-                    document.getElementById('displayDob').textContent = data.dob || 'Chưa cập nhật';
+                    // Điền thông tin vào các thẻ HTML dựa trên ID bạn đã đặt
+                    document.getElementById('displayFullName').innerText = userData.full_name || "Chưa cập nhật";
+                    document.getElementById('displayUsername').innerText = "@" + userData.username;
+                    document.getElementById('userEmail').innerText = userData.email || "N/A";
+                    document.getElementById('displayGender').innerText = userData.gender || "N/A";
+                    document.getElementById('displayDob').innerText = userData.dob || "N/A";
                     
-                    let genderText = 'Bảo mật';
-                    if (data.gender === 'male') genderText = 'Nam';
-                    else if (data.gender === 'female') genderText = 'Nữ';
-                    else if (data.gender === 'other') genderText = 'Khác';
-                    document.getElementById('displayGender').textContent = genderText;
-                    
-                    document.getElementById('userGoal').textContent = data.financial_goal || 'Chưa xác định';
-                    if (data.full_name) document.getElementById('userInitial').textContent = data.full_name.charAt(0).toUpperCase();
-                } else if (res.status === 401) {
-                    // Nếu token hết hạn, xóa cả 2 tên cho chắc
-                    localStorage.removeItem('token'); 
+                    // Nếu có avatar hoặc chữ cái đầu tên
+                    if(document.getElementById('userInitial')) {
+                        document.getElementById('userInitial').innerText = userData.full_name ? userData.full_name.charAt(0).toUpperCase() : userData.username.charAt(0).toUpperCase();
+                    }
+                } else {
+                    // Nếu token hết hạn hoặc không hợp lệ
                     localStorage.removeItem('access_token');
                     window.location.href = '/login';
                 }
-            } catch (error) { console.error("Lỗi:", error); }
+            } catch (error) {
+                console.error("Lỗi khi tải profile:", error);
+                if(window.showToast) showToast("Không thể kết nối đến máy chủ", "error");
+            }
         }
 
         function toggleEditMode() {
@@ -318,7 +325,7 @@
                 return;
             }
 
-            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+            const token = localStorage.getItem('access_token');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             btn.disabled = true;
@@ -362,7 +369,7 @@
             if (newPass.length < 6) { if(window.showToast) showToast("Mật khẩu mới phải từ 6 ký tự!", "error"); return; }
             if (newPass !== confirmPass) { if(window.showToast) showToast("Mật khẩu xác nhận không khớp!", "error"); return; }
 
-            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+            const token = localStorage.getItem('access_token');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
 
@@ -377,7 +384,7 @@
                 if (res.ok) {
                     if(window.showToast) showToast("Đổi mật khẩu thành công! Vui lòng đăng nhập lại.", "success");
                     closePasswordModal();
-                    setTimeout(() => { localStorage.removeItem('token'); window.location.href = '/login'; }, 2000);
+                    setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 2000);
                 } else {
                     if(window.showToast) showToast(data.detail || "Lỗi cập nhật", "error");
                 }
@@ -391,7 +398,7 @@
         function proceedLogout() {
             closeLogoutModal();
             if (typeof logout === 'function') { logout(); } 
-            else { localStorage.removeItem('token'); window.location.href = '/login'; }
+            else { localStorage.removeItem('access_token'); window.location.href = '/login'; }
         }
 
         document.addEventListener('DOMContentLoaded', () => {

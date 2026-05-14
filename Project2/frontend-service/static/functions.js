@@ -315,13 +315,15 @@ async function analyzeTrends() {
 }
 
 async function loadUserConfig() {
-    const token = localStorage.getItem('access_token');
+    // Tìm chìa khóa (Bắt cả token và access_token cho chắc chắn)
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
     if (!token) {
         return; 
     }
 
     try {
-        const response = await fetch('/api/config', {
+        // 🚀 BÍ KÍP CHỐNG LƯỜI Ở ĐÂY: Gắn đuôi ?t=... để ép tải dữ liệu mới 100%
+        const response = await fetch(`/api/config?t=${new Date().getTime()}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -339,7 +341,11 @@ async function loadUserConfig() {
             return;
         }
 
+        // Lưu cấu hình mới nhất vào biến toàn cục
         window.userSettings = configData;
+
+        // 🚀 Phóng thanh thông báo cho toàn bộ các trang (như Index) biết là "Đã có cấu hình mới rồi, cập nhật giao diện đi!"
+        window.dispatchEvent(new Event('userConfigLoaded'));
 
     } catch (error) {
         console.error("Lỗi khi tải cấu hình:", error);

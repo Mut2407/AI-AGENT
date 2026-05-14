@@ -521,7 +521,8 @@
         let recurringExpenseToEdit = null;
         let categoryColors = {}; 
         
-        const token = localStorage.getItem('token'); 
+        // TÌM VÀ SỬA DÒNG NÀY (Khoảng dòng 444):
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
 
         function handleCustomSelect(selectElement, promptText) {
             if (selectElement.value === 'custom') {

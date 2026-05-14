@@ -313,15 +313,12 @@
                     </div>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 15px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <label for="reportGain" style="margin: 0; color: var(--text-secondary);">Khoản thu</label>
-                        <input type="checkbox" id="reportGain" style="transform: scale(1.2); cursor: pointer;">
-                    </div>
+                <div style="display: flex; justify-content: flex-end; align-items: center; border-top: 1px solid var(--border); padding-top: 15px;">
                     <div style="display: flex; gap: 10px;">
                         <button type="button" id="btnCancelEdit" class="nav-button" style="display: none; background-color: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); font-weight: bold;" onclick="cancelEditMode()">Hủy</button>
                         <button type="submit" id="btnSubmitExpense" class="nav-button" style="padding: 10px 25px; font-weight: bold;">Lưu Giao Dịch</button>
                     </div>
+                </div>
                 </div>
             </form>
             <div id="formMessage" class="form-message"></div>
@@ -418,7 +415,7 @@
                     globalJars = jars; 
                     const select = document.getElementById('jar_id');
                     if (select) {
-                        select.innerHTML = '<option value="">-- Chọn Quỹ để rút --</option>';
+                        select.innerHTML = '<option value="">Ví chính (Số dư khả dụng)</option>';
                         jars.forEach(j => {
                             select.innerHTML += `<option value="${j.id}">${j.name} (${formatCurrency(j.balance)})</option>`;
                         });
@@ -431,25 +428,24 @@
 
         function updateExpenseFormCategoryOptions() {
             const categorySelect = document.getElementById("category");
-            const isIncome = document.getElementById("reportGain").checked;
+            if(!categorySelect) return;
             
-            if(categorySelect) {
-                const currentValue = categorySelect.value;
-                
-                const expOptions = expenseCategories.map(c => `<option value="${c}">${c}</option>`).join('');
-                const incOptions = incomeCategories.map(c => `<option value="${c}">${c}</option>`).join('');
-                
-                categorySelect.innerHTML = `<optgroup label="Chi Tiêu">${expOptions}</optgroup><optgroup label="Thu Nhập">${incOptions}</optgroup>`;
-                
-                if (currentValue && (expenseCategories.includes(currentValue) || incomeCategories.includes(currentValue))) {
-                    categorySelect.value = currentValue;
-                }
+            const currentValue = categorySelect.value;
+            
+            const expOptions = expenseCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+            const incOptions = incomeCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+            
+            categorySelect.innerHTML = `<optgroup label="🔻 KHOẢN CHI">${expOptions}</optgroup><optgroup label="🍀 KHOẢN THU">${incOptions}</optgroup>`;
+            
+            if (currentValue && (expenseCategories.includes(currentValue) || incomeCategories.includes(currentValue))) {
+                categorySelect.value = currentValue;
             }
             
+            // Xử lý Hũ: Mặc định ẩn nếu danh mục đầu tiên là Thu nhập
             const jarGroup = document.getElementById("jarSourceGroup");
-            if(jarGroup) {
+            if(jarGroup && categorySelect.value) {
+                const isIncome = incomeCategories.includes(categorySelect.value);
                 jarGroup.style.display = isIncome ? 'none' : 'flex';
-                jarGroup.style.flexDirection = 'column'; 
             }
         }
 
@@ -467,26 +463,13 @@
                     }
                 });
             }
-
-            const reportGainCheckbox = document.getElementById("reportGain");
             const categorySelect = document.getElementById("category");
-
-            if(reportGainCheckbox) {
-                reportGainCheckbox.addEventListener("change", () => {
-                    updateExpenseFormCategoryOptions();
-                    if (categorySelect) {
-                        categorySelect.value = reportGainCheckbox.checked ? incomeCategories[0] : expenseCategories[0];
-                    }
-                });
-            }
-
-            if(categorySelect) {
+            if (categorySelect) {
                 categorySelect.addEventListener("change", (e) => {
                     const isIncomeCat = incomeCategories.includes(e.target.value);
-                    if (reportGainCheckbox && reportGainCheckbox.checked !== isIncomeCat) {
-                        reportGainCheckbox.checked = isIncomeCat;
-                        updateExpenseFormCategoryOptions();
-                        categorySelect.value = e.target.value; 
+                    const jarGroup = document.getElementById("jarSourceGroup");
+                    if (jarGroup) {
+                        jarGroup.style.display = isIncomeCat ? 'none' : 'flex';
                     }
                 });
             }
@@ -869,13 +852,14 @@
         }
 
         function editExpense(id, name, category, amount, tags, date, note, recurring_interval) {
-            document.getElementById('reportGain').checked = amount > 0;
             updateExpenseFormCategoryOptions();
-            
+
             document.getElementById('name').value = name;
             document.getElementById('category').value = category;
-            document.getElementById('note').value = note || '';
-            document.getElementById('recurring_interval').value = recurring_interval || '';
+
+            // 🚀 Thêm 2 dòng này để tự động ẩn/hiện Hũ khi ấn nút Sửa
+            const jarGroup = document.getElementById("jarSourceGroup");
+            if (jarGroup) jarGroup.style.display = incomeCategories.includes(category) ? 'none' : 'flex';
             
             let displayAmount = Math.abs(amount);
             if (typeof exchangeRatesToVND !== 'undefined') {
@@ -1049,95 +1033,125 @@
         }
 
         document.getElementById('expenseForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const form = e.target; const editId = form.dataset.editId; const isGain = document.getElementById('reportGain').checked;
-            
-            let rawStringAmount = document.getElementById('amount').value.replace(/,/g, '');
-            let rawAmount = parseFloat(rawStringAmount);
-            
-            if (isNaN(rawAmount) || rawAmount <= 0) {
-                if(window.showToast) showToast("Vui lòng nhập số tiền hợp lệ lớn hơn 0!", "error");
-                return;
-            }
+        e.preventDefault();
+        const form = e.target; 
+        const editId = form.dataset.editId; 
+        
+        // 🚀 BÍ KÍP: Tự nhận diện Thu/Chi dựa vào danh mục em đang chọn
+        const selectedCategory = document.getElementById('category').value;
+        const isGain = incomeCategories.includes(selectedCategory);
+        
+        let rawStringAmount = document.getElementById('amount').value.replace(/,/g, '');
+        let rawAmount = parseFloat(rawStringAmount);
+        
+        if (isNaN(rawAmount) || rawAmount <= 0) {
+            if(window.showToast) showToast("Vui lòng nhập số tiền hợp lệ lớn hơn 0!", "error");
+            return;
+        }
 
-            const selectedCategory = document.getElementById('category').value;
-            const selectedJar = document.getElementById('jar_id').value;
-            let rate = 1; if (typeof exchangeRatesToVND !== 'undefined') { rate = exchangeRatesToVND[currentCurrency] || 1; }
-            let amountInVND = rawAmount * rate; let finalAmountToSave = isGain ? amountInVND : -amountInVND;
+        const selectedJar = document.getElementById('jar_id').value;
+        let rate = 1; 
+        if (typeof exchangeRatesToVND !== 'undefined') { 
+            rate = exchangeRatesToVND[currentCurrency] || 1; 
+        }
+        
+        let amountInVND = rawAmount * rate; 
+        let finalAmountToSave = isGain ? amountInVND : -amountInVND;
 
-            if (!isGain && !selectedJar) {
-                showCustomAlert("Bạn ơi, vui lòng chọn Quỹ (Hũ) để rút tiền nhé!");
+
+
+        if (!isGain && selectedJar) {
+            const jarId = parseInt(selectedJar);
+            const jarData = globalJars.find(j => j.id === jarId);
+            
+            if (jarData && jarData.balance < amountInVND) {
+                const balanceDisplay = formatCurrency(jarData.balance);
+                const amountDisplay = formatCurrency(amountInVND);
+                showCustomAlert(`Quỹ "${jarData.name}" hiện không đủ tiền để thực hiện giao dịch này!\n\n- Số dư hiện tại: ${balanceDisplay}\n- Số tiền cần rút: ${amountDisplay}`);
                 return; 
             }
+        }
 
-            if (!isGain && selectedJar) {
-                const jarId = parseInt(selectedJar);
-                const jarData = globalJars.find(j => j.id === jarId);
-                
-                if (jarData && jarData.balance < amountInVND) {
-                    const balanceDisplay = formatCurrency(jarData.balance);
-                    const amountDisplay = formatCurrency(amountInVND);
-                    showCustomAlert(`Quỹ "${jarData.name}" hiện không đủ tiền để thực hiện giao dịch này!\n\n- Số dư hiện tại: ${balanceDisplay}\n- Số tiền cần rút: ${amountDisplay}`);
-                    return; 
-                }
-            }
+        // 🚀 Lấy Token chuẩn xác nhất để dùng chung cho toàn bộ hàm
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
 
-            if (!isGain && selectedCategory) {
-                try {
-                    // 🚀 ĐÃ SỬA: Chuyển setItem thành getItem và bỏ chữ data.access_token đi
-                    const token = localStorage.getItem("access_token");
-                    const resBudgets = await fetch('/api/planning/budgets', { headers: { 'Authorization': `Bearer ${token}` } });
-                    if (resBudgets.ok) {
-                        const currentBudgets = await resBudgets.json();
-                        const categoryBudget = currentBudgets.find(b => b.category === selectedCategory);
-                        if (categoryBudget && categoryBudget.limit_amount > 0) {
-                            const totalAfterExpense = categoryBudget.spent_amount + amountInVND;
-                            if (totalAfterExpense > categoryBudget.limit_amount) {
-                                const confirmMsg = `CẢNH BÁO VƯỢT NGÂN SÁCH!\n\nKhoản chi này sẽ làm bạn vượt hạn mức ngân sách của mục "${selectedCategory}".\n- Hạn mức: ${formatCurrency(categoryBudget.limit_amount)}\n- Tổng nếu lưu: ${formatCurrency(totalAfterExpense)}\n\nBạn có chắc chắn muốn tiếp tục lưu không?`;
-                                const userConfirmed = await showCustomConfirm(confirmMsg);
-                                if (!userConfirmed) return; 
-                            }
+        if (!isGain && selectedCategory) {
+            try {
+                const resBudgets = await fetch('/api/planning/budgets', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (resBudgets.ok) {
+                    const currentBudgets = await resBudgets.json();
+                    const categoryBudget = currentBudgets.find(b => b.category === selectedCategory);
+                    if (categoryBudget && categoryBudget.limit_amount > 0) {
+                        const totalAfterExpense = categoryBudget.spent_amount + amountInVND;
+                        if (totalAfterExpense > categoryBudget.limit_amount) {
+                            const confirmMsg = `CẢNH BÁO VƯỢT NGÂN SÁCH!\n\nKhoản chi này sẽ làm bạn vượt hạn mức ngân sách của mục "${selectedCategory}".\n- Hạn mức: ${formatCurrency(categoryBudget.limit_amount)}\n- Tổng nếu lưu: ${formatCurrency(totalAfterExpense)}\n\nBạn có chắc chắn muốn tiếp tục lưu không?`;
+                            const userConfirmed = await showCustomConfirm(confirmMsg);
+                            if (!userConfirmed) return; 
                         }
                     }
-                } catch(error) { console.error("Lỗi kiểm tra ngân sách:", error); }
-
-                const categoryExpenses = allExpenses.filter(exp => exp.amount < 0 && exp.category === selectedCategory); let categoryAverageVND = 0;
-                if (categoryExpenses.length > 0) { const totalCategory = categoryExpenses.reduce((sum, exp) => sum + Math.abs(exp.amount), 0); categoryAverageVND = totalCategory / categoryExpenses.length; }
-                const minAlertAmountVND = 50 * exchangeRatesToVND['usd']; 
-
-                if (categoryAverageVND > 0 && amountInVND > (categoryAverageVND * 3) && amountInVND > minAlertAmountVND) {
-                    const confirmMsg = `Số tiền bạn định lưu (${formatCurrency(amountInVND)}) lớn hơn GẤP NHIỀU LẦN so với mức chi tiêu trung bình của danh mục "${selectedCategory}" (${formatCurrency(categoryAverageVND)}).\n\nBạn có chắc chắn thông tin này là chính xác và muốn lưu không?`;
-                    const userConfirmed = await showCustomConfirm(confirmMsg); if (!userConfirmed) return; 
                 }
+            } catch(error) { console.error("Lỗi kiểm tra ngân sách:", error); }
+
+            const categoryExpenses = allExpenses.filter(exp => exp.amount < 0 && exp.category === selectedCategory); 
+            let categoryAverageVND = 0;
+            if (categoryExpenses.length > 0) { 
+                const totalCategory = categoryExpenses.reduce((sum, exp) => sum + Math.abs(exp.amount), 0); 
+                categoryAverageVND = totalCategory / categoryExpenses.length; 
             }
+            const minAlertAmountVND = 50 * exchangeRatesToVND['usd']; 
 
-            const formData = {
-                name: document.getElementById('name').value.trim(), category: selectedCategory, amount: finalAmountToSave, 
-                date: new Date(document.getElementById('date').value + "T00:00:00Z").toISOString(), tags: Array.from(selectedTags).map(t => String(t)), 
-                note: document.getElementById('note').value.trim() || null, recurring_interval: document.getElementById('recurring_interval').value || null,
-                jar_id: parseInt(selectedJar) || null
-            };
+            if (categoryAverageVND > 0 && amountInVND > (categoryAverageVND * 3) && amountInVND > minAlertAmountVND) {
+                const confirmMsg = `Số tiền bạn định lưu (${formatCurrency(amountInVND)}) lớn hơn GẤP NHIỀU LẦN so với mức chi tiêu trung bình của danh mục "${selectedCategory}" (${formatCurrency(categoryAverageVND)}).\n\nBạn có chắc chắn thông tin này là chính xác và muốn lưu không?`;
+                const userConfirmed = await showCustomConfirm(confirmMsg); 
+                if (!userConfirmed) return; 
+            }
+        }
 
-            try {
-                const submitBtn = form.querySelector('button[type="submit"]'); submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...'; submitBtn.disabled = true;
+        const formData = {
+            name: document.getElementById('name').value.trim(), category: selectedCategory, amount: finalAmountToSave, 
+            date: new Date(document.getElementById('date').value + "T00:00:00Z").toISOString(), tags: Array.from(selectedTags).map(t => String(t)), 
+            note: document.getElementById('note').value.trim() || null, recurring_interval: document.getElementById('recurring_interval').value || null,
+            jar_id: parseInt(selectedJar) || null
+        };
 
-                const response = await fetch(editId ? `/api/expenses/${editId}` : '/api/expenses/', { method: editId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
-                if (response.ok) {
-                    if(window.showToast) showToast(editId ? 'Đã cập nhật giao dịch!' : 'Đã thêm giao dịch mới!', "success");
-                    const lastDate = document.getElementById('date').value; 
-                    form.reset(); document.getElementById('selected-tags').innerHTML = ''; selectedTags.clear(); delete form.dataset.editId;
-                    
-                    document.getElementById('btnSubmitExpense').innerHTML = 'Lưu Giao Dịch';
-                    document.getElementById('btnCancelEdit').style.display = 'none';
-                    
-                    await initialize(); document.getElementById('date').value = lastDate; 
-                } else {
-                    const errorDetail = await response.json(); const msg = errorDetail.detail?.[0]?.msg || errorDetail.error || 'Không thể lưu do dữ liệu không hợp lệ'; const loc = errorDetail.detail?.[0]?.loc?.[1] || "";
-                    if(window.showToast) showToast(`Lỗi ${loc ? '['+loc+']' : ''}: ${msg}`, "error");
-                }
-            } catch (error) { if(window.showToast) showToast("Lỗi kết nối máy chủ!", "error"); } 
-            finally { const submitBtn = form.querySelector('button[type="submit"]'); submitBtn.innerHTML = 'Lưu Giao Dịch'; submitBtn.disabled = false; }
-        });
+        try {
+            const submitBtn = form.querySelector('button[type="submit"]'); 
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...'; 
+            submitBtn.disabled = true;
+
+            const response = await fetch(editId ? `/api/expenses/${editId}` : '/api/expenses/', { 
+                method: editId ? 'PUT' : 'POST', 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` // 🚀 Đã thêm Token vào đây để không bị Lỗi 401 khi lưu!
+                }, 
+                body: JSON.stringify(formData) 
+            });
+            
+            if (response.ok) {
+                if(window.showToast) showToast(editId ? 'Đã cập nhật giao dịch!' : 'Đã thêm giao dịch mới!', "success");
+                const lastDate = document.getElementById('date').value; 
+                form.reset(); document.getElementById('selected-tags').innerHTML = ''; selectedTags.clear(); delete form.dataset.editId;
+                
+                document.getElementById('btnSubmitExpense').innerHTML = 'Lưu Giao Dịch';
+                document.getElementById('btnCancelEdit').style.display = 'none';
+                
+                await initialize(); document.getElementById('date').value = lastDate; 
+            } else {
+                const errorDetail = await response.json(); 
+                const msg = errorDetail.detail?.[0]?.msg || errorDetail.error || 'Không thể lưu do dữ liệu không hợp lệ'; 
+                const loc = errorDetail.detail?.[0]?.loc?.[1] || "";
+                if(window.showToast) showToast(`Lỗi ${loc ? '['+loc+']' : ''}: ${msg}`, "error");
+            }
+        } catch (error) { 
+            if(window.showToast) showToast("Lỗi kết nối máy chủ!", "error"); 
+        } 
+        finally { 
+            const submitBtn = form.querySelector('button[type="submit"]'); 
+            submitBtn.innerHTML = 'Lưu Giao Dịch'; 
+            submitBtn.disabled = false; 
+        }
+    });
         
         document.addEventListener('DOMContentLoaded', initialize);
         document.getElementById('name').addEventListener('click', (e) => { if (e.target.value === '-') e.target.value = ''; });
