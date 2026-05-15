@@ -169,12 +169,21 @@ async function loadSuggestions() {
 
 async function initSuggestionsPage() {
     try {
-        const res = await fetch('/api/config');
+        // 🚀 BÍ KÍP: Lấy token và gọi đúng địa chỉ /api/users/config
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+        const res = await fetch('/api/users/config', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
         if (res.ok) {
             const config = await res.json();
             window.currentCurrency = config.currency || 'usd';
+        } else {
+            console.warn("Không lấy được tiền tệ, tự động dùng USD");
+            window.currentCurrency = 'usd';
         }
 
+        // Khôi phục lại các ô nhập liệu cũ (nếu có)
         const savedInputs = sessionStorage.getItem('ai_suggestion_inputs');
         if (savedInputs) {
             const inputs = JSON.parse(savedInputs);
@@ -191,6 +200,7 @@ async function initSuggestionsPage() {
             document.getElementById('goalMonths').value = inputs.goalMonths || '';
         }
 
+        // Khôi phục lại kết quả AI cũ
         const savedResult = sessionStorage.getItem('ai_suggestion_result');
         if (savedResult) {
             const data = JSON.parse(savedResult);

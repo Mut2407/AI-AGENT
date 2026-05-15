@@ -8,7 +8,7 @@ import random
 import requests
 from datetime import datetime
 import re
-
+from datetime import datetime, timedelta # 🚀 Thêm timedelta
 import services
 
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8000")
@@ -35,7 +35,14 @@ class ChatRequest(BaseModel):
     history: list = []
     currency: str = "vnd"
     rate: float = 1.0
-
+class SuggestionRequest(BaseModel):
+    month_window: int
+    goal_name: str
+    goal_amount: float
+    goal_months: int
+    currency: str
+    symbol: str
+    rate: float
 def get_random_api_key():
     keys_str = os.getenv("GEMINI_API_KEY", "")
     keys = [k.strip() for k in keys_str.split(",") if k.strip()]
@@ -271,3 +278,93 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
         "action": final_action,
         "transaction_data": transaction_data
     }
+
+@app.post("/api/ai/spending-suggestions")
+def generate_spending_suggestions(req: SuggestionRequest, current_user: dict = Depends(get_current_user)):
+    username = current_user.get("username")
+    
+    api_key = get_random_api_key()
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Chưa cấu hình GEMINI_API_KEY")
+
+    # 1. TẢI VÀ LỌC GIAO DỊCH
+    all_txns = services.get_user_transactions(username) or []
+    
+    # Xác định mốc thời gian (1, 3, hoặc 6 tháng trước)
+    cutoff_date = datetime.now() - timedelta(days=30 * req.month_window)
+    
+    category_expenses = {}
+    
+    for t in all_txns:
+        try:
+            tx_date = datetime.fromisoformat(t.get("date", "").replace("Z", ""))
+            amt = float(t.get("amount", 0) or 0)
+            
+            # Chỉ lấy các khoản Chi Tiêu (số âm) và nằm trong khoảng thời gian đã chọn
+            if amt < 0 and tx_date >= cutoff_date:
+                cat = t.get("category", "Khác")
+                display_amt = abs(amt) / req.rate
+                # 🚀 Đã sửa category_average thành category_expenses
+                category_expenses[cat] = category_expenses.get(cat, 0) + display_amt
+        except: pass
+
+    # Tính TRUNG BÌNH MỖI THÁNG cho từng danh mục
+    avg_monthly_expenses = {cat: total / req.month_window for cat, total in category_expenses.items() if total > 0}
+    total_avg_month = sum(avg_monthly_expenses.values())
+
+    # Tính số tiền cần tiết kiệm mỗi tháng để đạt mục tiêu
+    monthly_savings_needed = 0
+    if req.goal_months > 0:
+        monthly_savings_needed = (req.goal_amount) / req.goal_months
+
+    # Chuẩn bị dữ liệu cho AI đọc
+    spending_context = "\n".join([f"- {cat}: {amt:,.0f} {req.currency.upper()}/tháng" for cat, amt in avg_monthly_expenses.items()])
+    if not spending_context:
+        spending_context = "Hiện tại người dùng chưa có dữ liệu chi tiêu nào trong khoảng thời gian này."
+
+    # 2. XÂY DỰNG PROMPT (NHỒI LUẬT JSON KHẮT KHE)
+    prompt = f"""
+    Bạn là chuyên gia tài chính "Cú Mèo" của ExpenseOwl.
+    Người dùng muốn tiết kiệm để: "{req.goal_name}".
+    Số tiền cần tiết kiệm: {req.goal_amount:,.0f} {req.currency.upper()} trong {req.goal_months} tháng.
+    Mục tiêu tiết kiệm mỗi tháng: {monthly_savings_needed:,.0f} {req.currency.upper()}/tháng.
+
+    BẢNG CHI TIÊU TRUNG BÌNH {req.month_window} THÁNG QUA CỦA NGƯỜI DÙNG:
+    {spending_context}
+    Tổng chi tiêu trung bình: {total_avg_month:,.0f} {req.currency.upper()}/tháng.
+
+    NHIỆM VỤ: Hãy phân tích và đề xuất cách cắt giảm các khoản chi tiêu trên để dư ra được {monthly_savings_needed:,.0f} mỗi tháng. Đừng cắt giảm các khoản bắt buộc (Hóa đơn, Tiền nhà). Hãy tập trung vào (Mua sắm, Giải trí, Ăn uống).
+
+    TRẢ VỀ DUY NHẤT 1 KHỐI JSON, KHÔNG CÓ MARKDOWN BỌC NGOÀI, ĐÚNG ĐỊNH DẠNG SAU:
+    {{
+        "feasibility": "high" | "medium" | "low", 
+        "overall_strategy": "Câu tóm tắt chiến lược...",
+        "monthly_savings_needed": {monthly_savings_needed},
+        "category_plans": [
+            {{
+                "category": "Tên danh mục (lấy từ bảng trên)",
+                "current_avg_spend": Số tiền trung bình hiện tại,
+                "target_spend": Số tiền mục tiêu sau khi cắt giảm,
+                "reduction_amount": Số tiền bị cắt giảm,
+                "how_to_achieve": "1 câu ngắn khuyên cách làm sao để giảm được"
+            }}
+        ]
+    }}
+    Lưu ý phần feasibility: Nếu monthly_savings_needed lớn hơn Tổng chi tiêu trung bình, hãy đánh giá là "low".
+    """
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}], 
+        "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
+    }
+
+    try:
+        response = call_gemini_with_backoff(url, payload)
+        ai_text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        match = re.search(r'\{.*\}', ai_text, re.DOTALL)
+        clean_text = match.group(0) if match else ai_text.strip()
+        result_json = json.loads(clean_text)
+        return result_json
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cú Mèo tính toán thất bại. Chi tiết: {str(e)}")

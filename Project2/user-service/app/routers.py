@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 import models, schemas, auth
 from database import get_db
-from sqlalchemy.orm.attributes import flag_modified
+
 router = APIRouter()
 
 # ==========================================
@@ -66,7 +67,6 @@ def get_user_config(db: Session = Depends(get_db), current_user: models.User = D
     config = db.query(models.UserConfig).filter(models.UserConfig.user_id == current_user.id).first()
     is_newly_created = False
 
-    # Nếu chưa có config -> Đây chắc chắn là tài khoản mới tạo
     if not config:
         config = models.UserConfig(user_id=current_user.id)
         db.add(config)
@@ -81,23 +81,20 @@ def get_user_config(db: Session = Depends(get_db), current_user: models.User = D
     if isinstance(cats, list): 
         exp_cats = cats
     
-    # 1. Quyết định xem có bật bảng Setup Wizard hay không?
     is_new = getattr(config, 'is_new_user', is_newly_created)
     if not exp_cats:
         is_new = True
 
-    # 2. Xử lý "Âm thầm" cho tài khoản CŨ bị kẹt tiếng Anh (KHÔNG bật Setup)
-    english_words = ["Bill", "Bills", "Food", "Transport", "Shopping", "Entertainment"]
+    english_words = ["Bill", "Bills", "Food", "Transport", "Shopping", "Entertainment", "Other", "Khác"]
     has_english = any(word in (exp_cats or []) for word in english_words)
 
     if has_english and not is_new:
-        # Tự động dịch sang tiếng Việt rồi lưu lại vào DB cho tài khoản cũ
         exp_cats = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"]
         inc_cats = ["Lương", "Thưởng", "Đầu tư", "Khác"]
         config.categories = {"expenseCategories": exp_cats, "incomeCategories": inc_cats}
+        flag_modified(config, "categories")
         db.commit()
     elif is_new:
-        # Khởi tạo mặc định cho tài khoản mới (để Frontend tải lên)
         exp_cats = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"]
         inc_cats = ["Lương", "Thưởng", "Đầu tư", "Khác"]
 
@@ -118,10 +115,7 @@ def update_categories(data: CategoryUpdate, db: Session = Depends(get_db), curre
     if config:
         config.categories = {"expenseCategories": data.expenseCategories, "incomeCategories": data.incomeCategories}
         if hasattr(config, 'is_new_user'): config.is_new_user = False
-        
-        # 🚀 CÔNG NGHỆ CỦA BẠN EM: Bắt buộc DB phải lưu JSON
         flag_modified(config, "categories") 
-        
         db.commit()
     return {"message": "Cập nhật danh mục thành công"}
 

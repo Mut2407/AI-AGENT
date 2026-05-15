@@ -7,6 +7,7 @@ if (!localStorage.getItem('access_token') &&
 
 function logout() {
     localStorage.removeItem('access_token'); // Đổi 'token' thành 'access_token'
+    sessionStorage.clear(); // 🚀 XÓA SẠCH BỘ NHỚ TẠM CỦA AI TRƯỚC KHI THOÁT
     window.location.href = '/login';
 }
 
