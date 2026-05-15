@@ -505,7 +505,7 @@
                 let name = row.querySelector('.jar-name').value.trim(); 
                 const percent = parseFloat(row.querySelector('.jar-percent').value) || 0;
                 const goalRaw = row.querySelector('.jar-goal').value.trim().replace(/,/g, '');
-                const goal = Number(goalRaw);
+                const goal = (goalRaw === "") ? 0 : Number(goalRaw);
 
                 if (!name) { 
                     hasError = true; errorMsg = "Tên hũ không được để trống!"; break; 
@@ -529,7 +529,7 @@
                     hasError = true; errorMsg = `Phần trăm của hũ "${name}" phải từ 0 đến 100!`; break;
                 }
 
-                if (goalRaw === "" || isNaN(goal) || goal < 0) {
+                if (isNaN(goal) || goal < 0) {
                     hasError = true; errorMsg = `Mục tiêu của hũ "${name}" không hợp lệ!`; break;
                 }
                 if (goal > 1000000000000) { 
@@ -639,10 +639,11 @@
                     from_id: fromId 
                 };
 
+                const token = localStorage.getItem('token') || localStorage.getItem('access_token');
                 const res = await fetch('/api/planning/jars/transfer', { 
                     method: 'POST', 
                     headers: { 
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`, 
+                        'Authorization': `Bearer ${token}`, 
                         'Content-Type': 'application/json' 
                     }, 
                     body: JSON.stringify(payload) 
@@ -695,15 +696,26 @@
                 history.sort((a, b) => new Date(b.date) - new Date(a.date));
 
                 listContainer.innerHTML = history.map(t => {
-                    const dateObj = new Date(t.date);
+                    if (t.name.startsWith("Nhận từ hũ")) return '';
+
+                    const dateObj = new Date(t.date.endsWith('Z') ? t.date : t.date + 'Z');
                     const dateStr = dateObj.toLocaleDateString('vi-VN') + ' ' + dateObj.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
                     
                     let displayName = t.name;
-                    const match = displayName.match(/ ([\d,]+)đ /);
+
+                    if (t.name.startsWith("Chuyển đến hũ")) {
+                        const sourceJar = allJarsCache.find(j => j.id === t.jar_id);
+                        const sourceName = sourceJar ? sourceJar.name : "Hũ nguồn";
+                        const destName = t.name.replace("Chuyển đến hũ ", "");
+                        
+                        displayName = `Chuyển từ hũ ${sourceName} đến hũ ${destName}`;
+                    }
+
+                    const match = displayName.match(/ ([\d,]+)đ/);
                     if (match) {
                         const rawAmount = parseFloat(match[1].replace(/,/g, ''));
                         const converted = formatPlanMoney(rawAmount / rate); 
-                        displayName = displayName.replace(match[0], ` ${converted} `);
+                        displayName = displayName.replace(match[0], ` ${converted}`);
                     }
 
                     return `
@@ -936,80 +948,120 @@
                 showToast("Lỗi kết nối mạng!", "error"); 
             }
         }
-
+        
         async function loadPlanningData() {
             const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             const rate = window.planRates[window.planCurrency] || 1;
             const headers = { 'Authorization': `Bearer ${token}` };
 
+            // ==========================================
+            // 1. TẢI DANH SÁCH HŨ (JARS) ĐỘC LẬP
+            // ==========================================
             try {
-                // 1. Tải danh sách Hũ
                 const resJars = await fetch('/api/planning/jars', { headers });
-                const jars = await resJars.json();
                 const jContainer = document.getElementById('jarsContainer');
-                jContainer.innerHTML = '';
                 
-                jars.forEach(j => {
-                    const percent = j.goal_amount > 0 ? Math.min((j.balance / j.goal_amount) * 100, 100) : 0;
-                    jContainer.innerHTML += `
-                        <div class="jar-card" onclick="showTransferModal(${j.id}, '${j.name}', ${j.balance})">
-                            <i class="fa-solid fa-piggy-bank" style="font-size:1.8rem;color:var(--accent);"></i>
-                            <div style="font-weight:bold; color: var(--text-primary); margin:8px 0;">${j.name}</div>
-                            <div style="color:#4ade80; font-size: 1.1rem; font-weight:bold;">${formatPlanMoney(j.balance / rate)}</div>
-                            <div class="progress-container" style="height: 6px;">
-                                <div class="progress-bar" style="width: ${percent}%; background: #4ade80;"></div>
-                            </div>
-                        </div>`;
-                });
+                if (resJars.ok) {
+                    const jars = await resJars.json();
+                    allJarsCache = jars;
+                    jContainer.innerHTML = '';
+                    
+                    jars.forEach(j => {
+                        const percent = j.goal_amount > 0 ? Math.min((j.balance / j.goal_amount) * 100, 100) : 0;
+                        let barColor = '#4ade80';
+                        if (percent >= 100) barColor = '#fbbf24';
+                        jContainer.innerHTML += `
+                            <div class="jar-card" onclick="showTransferModal(${j.id}, '${j.name}', ${j.balance})">
+                                <i class="fa-solid fa-piggy-bank" style="font-size:1.8rem;color:var(--accent); margin-bottom: 10px;"></i>
+                                <div style="font-weight:bold; color: var(--text-primary); font-size: 1.1rem;">${j.name}</div>
+                                
+                                <div style="color:var(--text-secondary); font-size: 0.9rem; margin: 8px 0;">
+                                    <span style="color:#4ade80; font-weight:bold; font-size: 1.1rem;">${formatPlanMoney(j.balance / rate)}</span> 
+                                    / ${formatPlanMoney(j.goal_amount / rate)}
+                                </div>
+                                
+                                <div class="progress-container" style="height: 8px; background: var(--bg-primary);">
+                                    <div class="progress-bar" style="width: ${percent}%; background: ${barColor};"></div>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); text-align: right; margin-top: 5px; font-weight: bold;">
+                                    ${percent.toFixed(1)}%
+                                </div>
+                            </div>`;
+                    });
+                } else {
+                    console.error("Lỗi API tải Hũ:", await resJars.text());
+                    jContainer.innerHTML = '<div style="color: #ff4d4d; text-align: center; padding: 20px;">Lỗi: Không thể tải danh sách Hũ.</div>';
+                }
+            } catch (e) { 
+                console.error("Lỗi kết nối tải Hũ:", e);
+                document.getElementById('jarsContainer').innerHTML = '<div style="color: #ff4d4d; text-align: center; padding: 20px;">Lỗi mạng: Mất kết nối khi tải Hũ.</div>';
+            }
 
-                // 2. Tải danh sách Ngân sách 
+            // ==========================================
+            // 2. TẢI NGÂN SÁCH (BUDGETS) ĐỘC LẬP
+            // ==========================================
+            try {
                 const { start, end } = getPeriodBoundsOverride(currentDate, currentPeriodType);
                 const startStr = getISODate(start);
                 const endStr = getISODate(end);
                 
                 const resBudgets = await fetch(`/api/planning/budgets?start_date=${startStr}&end_date=${endStr}&period_type=${currentPeriodType}`, { headers });
-                const budgets = await resBudgets.json();
-                
                 const bContainer = document.getElementById('budgetsContainer');
-                bContainer.innerHTML = '';
-                budgets.filter(b => b.limit_amount > 0).forEach(b => {
-                    const percent = (b.spent_amount / b.limit_amount) * 100;
-                    const displayPercent = Math.min(percent, 100);
-
-                    let barColor = '#4ade80';
-                    if (percent > 90) barColor = '#f87171';
-                    else if (percent > 75) barColor = '#fbbf24';
-
-                    // Tính toán gợi ý chi tiêu hàng ngày
-                    const endDate = new Date(b.end_date);
-                    const daysLeft = Math.max(1, Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24)));
-                    let suggestText = "";
-                    
-                    if (b.limit_amount > b.spent_amount) {
-                        const dailySafe = (b.limit_amount - b.spent_amount) / (rate * daysLeft);
-                        suggestText = `<i class="fa-solid fa-lightbulb" style="color: #fbbf24;"></i> Gợi ý: Tiêu tối đa <b>${formatPlanMoney(dailySafe)}</b>/ngày.`;
-                    } else {
-                        suggestText = `<i class="fa-solid fa-circle-exclamation" style="color: #f87171;"></i> <b>Đã vượt ngân sách!</b> Hãy cắt giảm chi tiêu mục này.`;
-                    }
-                    bContainer.innerHTML += `
-                        <div class="budget-card">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                                <span style="font-weight: bold; color: var(--text-primary);">${b.category}</span>
-                                <span style="color: var(--text-secondary); font-size: 0.85rem;">
-                                    ${formatPlanMoney(b.spent_amount/rate)} / ${formatPlanMoney(b.limit_amount/rate)}
-                                </span>
-                            </div>
-                            <div class="progress-container">
-                                <div class="progress-bar" style="width: ${displayPercent}%; background: ${barColor};"></div>
-                            </div>
-                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
-                                ${suggestText}
-                            </div>
-                        </div>`;
-                });
                 
-                updatePeriodDisplay();
-            } catch (e) { console.error(e); }
+                if (resBudgets.ok) {
+                    const budgets = await resBudgets.json();
+                    bContainer.innerHTML = '';
+                    budgets.filter(b => b.limit_amount > 0).forEach(b => {
+                        const percent = (b.spent_amount / b.limit_amount) * 100;
+                        const displayPercent = Math.min(percent, 100);
+
+                        let barColor = '#4ade80';
+                        if (percent > 90) barColor = '#f87171';
+                        else if (percent > 75) barColor = '#fbbf24';
+
+                        const endDate = new Date(b.end_date);
+                        const daysLeft = Math.max(1, Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24)));
+                        let suggestText = "";
+                        
+                        if (b.limit_amount > b.spent_amount) {
+                            const dailySafe = (b.limit_amount - b.spent_amount) / (rate * daysLeft);
+                            suggestText = `<i class="fa-solid fa-lightbulb" style="color: #fbbf24;"></i> Gợi ý: Tiêu tối đa <b>${formatPlanMoney(dailySafe)}</b>/ngày.`;
+                        } else {
+                            suggestText = `<i class="fa-solid fa-circle-exclamation" style="color: #f87171;"></i> <b>Đã vượt ngân sách!</b> Hãy cắt giảm chi tiêu mục này.`;
+                        }
+                        bContainer.innerHTML += `
+                            <div class="budget-card">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                                    <span style="font-weight: bold; color: var(--text-primary);">${b.category}</span>
+                                    <span style="color: var(--text-secondary); font-size: 0.85rem;">
+                                        ${formatPlanMoney(b.spent_amount/rate)} / ${formatPlanMoney(b.limit_amount/rate)}
+                                    </span>
+                                </div>
+                                <div class="progress-container">
+                                    <div class="progress-bar" style="width: ${displayPercent}%; background: ${barColor};"></div>
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
+                                    ${suggestText}
+                                </div>
+                            </div>`;
+                    });
+                } else {
+                    console.error("Lỗi API tải Ngân sách:", await resBudgets.text());
+                    bContainer.innerHTML = '<div style="color: #ff4d4d; text-align: center; padding: 20px;">Lỗi: Không thể tải danh sách Ngân sách.</div>';
+                }
+            } catch (e) { 
+                console.error("Lỗi kết nối tải Ngân sách:", e); 
+                document.getElementById('budgetsContainer').innerHTML = '<div style="color: #ff4d4d; text-align: center; padding: 20px;">Lỗi mạng: Mất kết nối khi tải Ngân sách.</div>';
+            }
+
+            // ==========================================
+            // 3. TẢI LỊCH SỬ GIAO DỊCH HŨ
+            // ==========================================
+            if (typeof loadGlobalJarHistory === 'function') {
+                await loadGlobalJarHistory();
+            }
+            
+            updatePeriodDisplay();
         }
 
         document.getElementById("periodSelect").addEventListener("change", (e) => { currentPeriodType = e.target.value; updatePeriodDisplay(); initBudgetInputs(); loadPlanningData(); });

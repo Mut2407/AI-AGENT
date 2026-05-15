@@ -20,12 +20,15 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         # Giải mã token để lấy user_id (nằm trong trường 'sub')
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
+
         
         if user_id is None:
             raise credentials_exception
             
-        # Trả về một dictionary chứa ID (khớp với code bên routers.py của em)
-        return {"id": user_id}
+        return {
+            "id": user_id,
+            "token": token
+        }
         
     except JWTError:
         raise credentials_exception

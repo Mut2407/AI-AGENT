@@ -20,7 +20,9 @@ def start_kafka_consumer():
             consumer = KafkaConsumer(
                 'transaction-events',
                 bootstrap_servers=[os.getenv("KAFKA_BROKER", "kafka:9092")],
-                auto_offset_reset='earliest',
+                group_id='budget-service-group',
+                auto_offset_reset='latest',
+                enable_auto_commit=True,
                 value_deserializer=lambda x: json.loads(x.decode('utf-8'))
             )
             print("✅ Đã kết nối thành công tới Kafka Broker!", flush=True)
@@ -61,7 +63,7 @@ def start_kafka_consumer():
                         models.Budget.end_date >= trans_date
                     ).first()
 
-                is_expense = (budget is not None) or (amount < 0)
+                is_expense = (amount < 0)
 
                 # ==========================================
                 # XỬ LÝ GIAO DỊCH
