@@ -4,7 +4,7 @@ from routers import router as user_router
 from database import engine, Base, get_db
 import models
 from auth import get_current_user # Giả định em đang dùng file auth.py để giải mã token
-
+from sqlalchemy.orm.attributes import flag_modified
 # Tạo bảng trong DB (nếu chưa có)
 Base.metadata.create_all(bind=engine)
 
@@ -72,7 +72,8 @@ def update_startdate(start_date: int = Body(...), db: Session = Depends(get_db),
 @app.post("/api/categories/edit")
 def update_categories(payload: dict = Body(...), db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     config = get_or_create_config(db, current_user.id) # 🚀 Sửa ở đây
-    config.categories = payload 
+    config.categories = payload
+    flag_modified(config, "categories") 
     db.commit()
     return {"message": "Cập nhật danh mục thành công"}
 

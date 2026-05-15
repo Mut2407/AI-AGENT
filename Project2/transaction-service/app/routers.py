@@ -72,7 +72,8 @@ def create_transaction(
          "user_id": db_transaction.user_id,
          "jar_id": db_transaction.jar_id,
          "amount": float(db_transaction.amount),
-         "category": db_transaction.category
+         "category": db_transaction.category,
+         "transaction_date": db_transaction.date.isoformat()
     })
 
     return db_transaction
@@ -128,12 +129,20 @@ def delete_transaction(
     amount_to_refund = db_txn.amount
     category = db_txn.category
     jar_id = db_txn.jar_id
+    txn_date = db_txn.date.isoformat() if db_txn.date else datetime.now().isoformat()
 
     db.delete(db_txn)
     db.commit()
 
     # 🚀 Bắn Kafka event thông báo xóa để Budget Service hoàn tiền
-    # kafka_pro.send_transaction_event("TRANSACTION_DELETED", {...})
+    kafka_pro.send_transaction_event("TRANSACTION_DELETED", {
+        "id": transaction_id,
+        "user_id": current_user["id"],
+        "jar_id": jar_id,
+        "amount": amount_to_refund,
+        "category": category,
+        "transaction_date": txn_date
+    })
 
     return {"message": "Đã xóa thành công"}
 
