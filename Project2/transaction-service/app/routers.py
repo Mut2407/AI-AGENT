@@ -126,7 +126,7 @@ def delete_transaction(
     if not db_txn:
         raise HTTPException(status_code=404, detail="Không tìm thấy giao dịch")
 
-    amount_to_refund = db_txn.amount
+    amount_to_refund = float(db_txn.amount)
     category = db_txn.category
     jar_id = db_txn.jar_id
     txn_date = db_txn.date.isoformat() if db_txn.date else datetime.now().isoformat()

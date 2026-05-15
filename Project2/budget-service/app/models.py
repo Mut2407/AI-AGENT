@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Date, Numeric
+from sqlalchemy import Column, Integer, String, Date, Numeric, DateTime
 from database import Base
+from datetime import datetime
 
 class Budget(Base):
     __tablename__ = "budgets"
@@ -26,3 +27,13 @@ class Jar(Base):
     
     # 🚀 ĐÃ SỬA: Chuyển Integer thành String
     user_id = Column(String, index=True)
+
+class JarHistory(Base):
+    __tablename__ = "jar_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True)
+    jar_id = Column(Integer)
+    name = Column(String) 
+    amount = Column(Numeric(15, 2))
+    date = Column(DateTime, default=datetime.utcnow)
