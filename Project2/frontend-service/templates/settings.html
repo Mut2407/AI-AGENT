@@ -763,7 +763,8 @@
             };
 
             try {
-                const response = await fetch('/api/categories/edit', { 
+                // 🚀 BÍ KÍP 1: Sửa thành /api/users/categories/edit
+                const response = await fetch('/api/users/categories/edit', { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
                     body: JSON.stringify(payloadObject) 
@@ -829,7 +830,7 @@
         async function saveCurrency() {
             const currencyCode = document.getElementById('currencySelect').value;
             try {
-                const response = await fetch('/api/currency/edit', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(currencyCode) });
+                const response = await fetch('/api/users/currency/edit', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(currencyCode) });
                 if (response.ok) { if(window.showToast) showToast('Đã lưu tiền tệ thành công', "success"); currentCurrency = currencyCode; } 
                 else { if(window.showToast) showToast('Lỗi khi lưu tiền tệ', "error"); }
             } catch (error) { if(window.showToast) showToast('Lỗi khi lưu tiền tệ', "error"); }
@@ -840,7 +841,7 @@
         async function saveStartDate() {
             const startDateValue = document.getElementById("startDate").value;
             try {
-                const response = await fetch('/api/startdate/edit', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(parseInt(startDateValue, 10)) });
+                const response = await fetch('/api/users/startdate/edit', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(parseInt(startDateValue, 10)) });
                 if(window.showToast) { if(response.ok) showToast('Đã lưu ngày bắt đầu thành công', "success"); else showToast('Lỗi khi lưu ngày bắt đầu', "error"); }
             } catch (error) { if(window.showToast) showToast('Lỗi khi lưu ngày bắt đầu', "error"); }
         }
@@ -1029,7 +1030,8 @@
                 };
 
                 const [configResponse, expensesResponse, recurringExpensesResponse] = await Promise.all([
-                    fetch('/api/config', { headers: authHeaders }), 
+                    // 🚀 BÍ KÍP 2: Sửa thành /api/users/config
+                    fetch('/api/users/config', { headers: authHeaders }), 
                     fetch('/api/expenses/', { headers: authHeaders }), 
                     fetch('/api/recurring-expenses', { headers: authHeaders })
                 ]);
@@ -1138,7 +1140,7 @@
             btn.disabled = true;
             
             try {
-                const res = await fetch('/api/profile/edit', { 
+                const res = await fetch('/api/users/profile/edit', { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
                     body: JSON.stringify({ goal: goal, risk: risk }) 
@@ -1203,7 +1205,7 @@
 
             if (saveToBackend) {
                 try {
-                    const res = await fetch('/api/email-sync/toggle', {
+                    const res = await fetch('/api/users/email-sync/toggle', {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json', 

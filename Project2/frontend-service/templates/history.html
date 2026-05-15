@@ -906,104 +906,102 @@
 
 
         async function initialize() {
-            try {
-                let config = { expenseCategories: ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"], incomeCategories: ["Lương", "Thưởng", "Đầu tư", "Khác"], currency: "usd", startDate: 1 };
-                try {
-                    // 🚀 Tự tìm chìa khóa và gắn vào yêu cầu lấy cấu hình
-                    const tokenConfig = localStorage.getItem('token') || localStorage.getItem('access_token');
-                    const configResponse = await fetch('/api/config', { 
-                        headers: { 'Authorization': `Bearer ${tokenConfig}` } 
-                    });
-                    if (configResponse.ok) {
-                        const fetchedConfig = await configResponse.json();
-                        if (fetchedConfig) config = {...config, ...fetchedConfig};
-                    }
-                } catch(e) {}
-                
-                if (config.expenseCategories && config.incomeCategories) {
-                    expenseCategories = config.expenseCategories;
-                    incomeCategories = config.incomeCategories;
-                } else if (config.categories) {
-                    expenseCategories = config.categories;
-                    incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
-                }
-                
-                initialCategories = [...expenseCategories, ...incomeCategories];
-                
-                updateExpenseFormCategoryOptions();
+        try {
+          let isNewUser = false;
 
-                const catFilter = document.getElementById('categoryFilter');
-                if(catFilter) {
-                    const expOptions = expenseCategories.map(c => `<option value="${c}">${c}</option>`).join('');
-                    const incOptions = incomeCategories.map(c => `<option value="${c}">${c}</option>`).join('');
-                    catFilter.innerHTML = `<option value="all">📁 Tất cả danh mục</option><optgroup label="Chi Tiêu">${expOptions}</optgroup><optgroup label="Thu Nhập">${incOptions}</optgroup>`;
-                }
-
-                window.currentCurrency = config.currency || 'usd'; 
-                currentCurrency = window.currentCurrency;
-                startDate = config.startDate || 1;
-                
-                const response = await fetch('/api/expenses/');
-                if (!response.ok) throw new Error('Failed to fetch data');
-                const rawData = await response.json();
-                let fetchedExpenses = Array.isArray(rawData) ? rawData : (rawData && Array.isArray(rawData.expenses) ? rawData.expenses : []);
-                
-                allExpenses = fetchedExpenses.map(exp => {
-                    let safeTags = [];
-                    if (Array.isArray(exp.tags)) { safeTags = exp.tags; } 
-                    else if (typeof exp.tags === 'string') { try { safeTags = JSON.parse(exp.tags); } catch(e) {} if (!Array.isArray(safeTags) && exp.tags.trim() !== '') safeTags = [exp.tags]; }
-                    let safeDate = new Date().toISOString(); if (typeof exp.date === 'string' && exp.date.trim() !== '') { safeDate = exp.date; }
-
-                    let catName = exp.category || 'Khác';
-                    const exactMatch = initialCategories.find(c => c === catName);
-                    if (!exactMatch) {
-                        const lowerMatch = initialCategories.find(c => c.toLowerCase() === catName.toLowerCase());
-                        if (lowerMatch) {
-                            catName = lowerMatch;
-                        }
-                    }
-
-                    return { ...exp, name: exp.name || 'Không có mô tả', category: catName, amount: parseFloat(exp.amount) || 0, date: safeDate, tags: safeTags, note: exp.note || null, recurring_interval: exp.recurring_interval || null };
-                });
-
-                allTags.clear();
-                allExpenses.forEach(exp => { exp.tags.forEach(tag => allTags.add(tag)); });
-
-                const savedColors = JSON.parse(localStorage.getItem('customCategoryColors') || '{}');
-                const uniqueCategories = [...new Set(allExpenses.map(exp => exp.category))];
-                initialCategories.forEach(c => { if(!uniqueCategories.includes(c)) uniqueCategories.push(c); });
-                const colorPalette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#F7464A', '#8a2be2'];
-                uniqueCategories.forEach((category, index) => {
-                    if (savedColors[category]) { 
-                        categoryColors[category] = savedColors[category]; 
-                    } else {
-                        const foundKey = Object.keys(savedColors).find(k => k.toLowerCase() === category.toLowerCase());
-                        if (foundKey) {
-                            categoryColors[category] = savedColors[foundKey];
-                        } else if (!categoryColors[category]) { 
-                            // Giờ thì colorPalette đã có mặt để phục vụ!
-                            categoryColors[category] = colorPalette[index % colorPalette.length] || "#8a2be2"; 
-                        }
-                    }
-                });
-
-                const tagSelect = document.getElementById('tagFilter');
-                if (tagSelect) {
-                    tagSelect.innerHTML = `<option value="all">🏷️ Tất cả nhãn</option>` + 
-                        [...allTags].map(tag => `<option value="${tag}">${escapeHTML(tag)}</option>`).join('');
-                }
-
-                await loadJarsForSelect();
-
-                updatePeriodDisplayOverride();
-                updateTable();
-                setupTagInput();
-
-            } catch (error) {
-                console.error('Lỗi khi khởi tạo bảng (Chi tiết):', error);
-                document.getElementById('tableContainer').innerHTML = `<div class="no-data" style="color: #ff4d4d;"><i class="fa-solid fa-triangle-exclamation"></i> Lỗi khi tải danh sách giao dịch. Hãy kiểm tra (F12) Console để biết chi tiết.</div>`;
+          // 1. GỌI API LẤY CẤU HÌNH (DANH MỤC TIẾNG VIỆT) TỪ USER-SERVICE
+          try {
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+            const configResponse = await fetch("/api/users/config", {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (configResponse.ok) {
+              const fetchedConfig = await configResponse.json();
+              if (fetchedConfig) {
+                  // ÉP GÁN TRỰC TIẾP VÀO BIẾN TOÀN CỤC CỦA WEB
+                  expenseCategories = fetchedConfig.expenseCategories || ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
+                  incomeCategories = fetchedConfig.incomeCategories || ["Lương", "Thưởng", "Đầu tư", "Khác"];
+                  isNewUser = fetchedConfig.is_new_user;
+                  window.currentCurrency = fetchedConfig.currency || "usd";
+              }
+            } else {
+                expenseCategories = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
+                incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
+                window.currentCurrency = "usd";
             }
+          } catch (e) {
+              console.log("Lỗi tải config:", e);
+              expenseCategories = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
+              incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
+              window.currentCurrency = "usd";
+          }
+
+          initialCategories = [...expenseCategories, ...incomeCategories];
+          
+          // 🚀 GỌI HÀM NÀY ĐỂ VẼ LẠI CÁI DROPDOWN THÊM GIAO DỊCH LẬP TỨC
+          updateExpenseFormCategoryOptions();
+          currentCurrency = window.currentCurrency;
+
+          // 2. GỌI API LẤY GIAO DỊCH TỪ TRANSACTION-SERVICE
+          let fetchedExpenses = [];
+          try {
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+            const response = await fetch("/api/expenses/", {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+              const data = await response.json();
+              fetchedExpenses = Array.isArray(data) ? data : (data && Array.isArray(data.expenses) ? data.expenses : []);
+            }
+          } catch (e) { console.log("Lỗi tải giao dịch:", e); }
+
+          allExpenses = fetchedExpenses.map((exp) => {
+            let safeTags = [];
+            if (Array.isArray(exp.tags)) safeTags = exp.tags;
+            else if (typeof exp.tags === "string") {
+              try { safeTags = JSON.parse(exp.tags); } catch (e) {}
+              if (!Array.isArray(safeTags) && exp.tags.trim() !== "") safeTags = [exp.tags];
+            }
+            let safeDate = new Date().toISOString();
+            if (typeof exp.date === "string" && exp.date.trim() !== "") safeDate = exp.date;
+
+            let catName = exp.category || "Khác";
+            return { ...exp, amount: parseFloat(exp.amount) || 0, date: safeDate, tags: safeTags, category: catName };
+          });
+
+          allTags.clear();
+          allExpenses.forEach((exp) => exp.tags.forEach((tag) => allTags.add(tag)));
+
+          const savedColors = JSON.parse(localStorage.getItem("customCategoryColors") || "{}");
+          const uniqueCategories = [...new Set(allExpenses.map((exp) => exp.category))];
+          initialCategories.forEach((c) => { if (!uniqueCategories.includes(c)) uniqueCategories.push(c); });
+          
+          // Tạo màu cho danh mục
+          const colorPalette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#F7464A', '#8a2be2'];
+          uniqueCategories.forEach((category, index) => {
+            if (savedColors[category]) {
+              categoryColors[category] = savedColors[category];
+            } else {
+              categoryColors[category] = colorPalette[index % colorPalette.length] || "#8a2be2";
+            }
+          });
+
+          updatePeriodDisplayOverride();
+          await loadJarsForSelect();         
+          if (typeof loadJarsForTransactionForm === "function") await loadJarsForTransactionForm(); 
+          
+          if (typeof updateChartAndLegend === "function") updateChartAndLegend();            
+          if (typeof updateTable === "function") updateTable();
+          
+          if (typeof setupTagInput === "function") setupTagInput();
+          
+          // 🚀 BẬT BẢNG SETUP WIZARD NẾU LÀ NGƯỜI MỚI HOẶC BỊ KẸT TIẾNG ANH
+          if (typeof checkSetupWizard === "function") checkSetupWizard(isNewUser); 
+          
+        } catch (error) {
+          console.error("Lỗi chí mạng khi khởi tạo:", error);
         }
+      }
 
         let expenseToDelete = null;
         function showDeleteModal(id) { expenseToDelete = id; document.getElementById('deleteModal').classList.add('active'); }

@@ -315,15 +315,12 @@ async function analyzeTrends() {
 }
 
 async function loadUserConfig() {
-    // Tìm chìa khóa (Bắt cả token và access_token cho chắc chắn)
     const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-    if (!token) {
-        return; 
-    }
+    if (!token) return;
 
     try {
-        // 🚀 BÍ KÍP CHỐNG LƯỜI Ở ĐÂY: Gắn đuôi ?t=... để ép tải dữ liệu mới 100%
-        const response = await fetch(`/api/config?t=${new Date().getTime()}`, {
+        // 🚀 Cú Mèo đã chốt cứng link đúng: /api/users/config
+        const response = await fetch(`/api/users/config?t=${new Date().getTime()}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -331,20 +328,12 @@ async function loadUserConfig() {
         
         const configData = await response.json();
 
-        if (configData.is_new_user === true && !window.location.href.includes('setup.html')) {
-            window.location.replace("/setup.html"); 
-            return;
-        }
-
-        if (configData.is_new_user === false && window.location.href.includes('setup.html')) {
-            window.location.replace("/dashboard.html"); // Hoặc /index.html tuỳ bạn
-            return;
-        }
+        // XÓA LỆNH CHUYỂN TRANG SETUP.HTML VÌ BẢNG SETUP CỦA EM LÀ OVERLAY TRONG INDEX.HTML
 
         // Lưu cấu hình mới nhất vào biến toàn cục
         window.userSettings = configData;
 
-        // 🚀 Phóng thanh thông báo cho toàn bộ các trang (như Index) biết là "Đã có cấu hình mới rồi, cập nhật giao diện đi!"
+        // Phóng thanh thông báo cho toàn bộ các trang biết là "Đã có cấu hình mới"
         window.dispatchEvent(new Event('userConfigLoaded'));
 
     } catch (error) {
