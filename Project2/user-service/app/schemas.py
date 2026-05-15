@@ -61,3 +61,11 @@ class UserUpdateProfile(BaseModel):
     dob: Optional[date] = None
 
     model_config = ConfigDict(from_attributes=True)
+    
+    # Validator này giúp "ép" chuỗi rỗng thành None để không bị lỗi 422
+    @field_validator('dob', mode='before')
+    @classmethod
+    def parse_dob(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
