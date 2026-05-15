@@ -64,15 +64,66 @@ def delete_jar(jar_id: int, db: Session = Depends(get_db), current_user: dict = 
 # 2. QUẢN LÝ NGÂN SÁCH (BUDGETS)
 # ==========================================
 
-@router.get("/budgets")
-def get_budgets(start_date: str, end_date: str, period_type: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    start = datetime.strptime(start_date[:10], "%Y-%m-%d").date()
-    end = datetime.strptime(end_date[:10], "%Y-%m-%d").date()
+@router.get("/budgets/current")
+def get_current_budgets(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """
+    Lấy ngân sách của tháng hiện tại.
+    Frontend có thể gọi endpoint này khi load trang lần đầu.
+    Trả về cả dữ liệu ngân sách + start_date/end_date của tháng hiện tại.
+    """
+    from sqlalchemy import func
+    from calendar import monthrange
+    
+    now = datetime.now()
+    current_month = now.month
+    current_year = now.year
+    
+    # Tính ngày đầu tháng và ngày cuối tháng
+    first_day = now.replace(day=1)
+    last_day_num = monthrange(current_year, current_month)[1]
+    last_day = now.replace(day=last_day_num)
 
     budgets = db.query(models.Budget).filter(
         models.Budget.user_id == current_user["id"],
-        models.Budget.start_date == start,
-        models.Budget.end_date == end,
+        func.extract('month', models.Budget.start_date) == current_month,
+        func.extract('year', models.Budget.start_date) == current_year,
+        models.Budget.period_type == "month"
+    ).all()
+
+    result = []
+    for b in budgets:
+        result.append({
+            "id": b.id,
+            "category": b.category,
+            "limit_amount": float(b.limit_amount),
+            "spent_amount": float(b.spent_amount),
+            "period_type": b.period_type,
+            "start_date": b.start_date.isoformat(),
+            "end_date": b.end_date.isoformat()
+        })
+    
+    return {
+        "month": current_month,
+        "year": current_year,
+        "start_date": first_day.isoformat(),
+        "end_date": last_day.isoformat(),
+        "budgets": result
+    }
+
+@router.get("/budgets")
+def get_budgets(start_date: str, end_date: str, period_type: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    from sqlalchemy import func
+    
+    start = datetime.strptime(start_date[:10], "%Y-%m-%d").date()
+    end = datetime.strptime(end_date[:10], "%Y-%m-%d").date()
+
+    start_month = start.month
+    start_year = start.year
+
+    budgets = db.query(models.Budget).filter(
+        models.Budget.user_id == current_user["id"],
+        func.extract('month', models.Budget.start_date) == start_month,
+        func.extract('year', models.Budget.start_date) == start_year,
         models.Budget.period_type == period_type
     ).all()
 
@@ -93,48 +144,77 @@ def get_budgets(start_date: str, end_date: str, period_type: str, db: Session = 
 
 @router.post("/budgets/bulk")
 def setup_budgets_bulk(payload: dict = Body(...), db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    start = datetime.strptime(payload["start_date"][:10], "%Y-%m-%d").date()
-    end = datetime.strptime(payload["end_date"][:10], "%Y-%m-%d").date()
-    period_type = payload["period_type"]
-    budgets_data = payload["budgets"]
+    from sqlalchemy import func
+    try:
+        start = datetime.strptime(payload["start_date"][:10], "%Y-%m-%d").date()
+        end = datetime.strptime(payload["end_date"][:10], "%Y-%m-%d").date()
+        period_type = payload["period_type"]
+        budgets_data = payload["budgets"]
 
-    # Bỏ đoạn check valid_categories với UserConfig (vì UserConfig ở service khác)
-    # Hoặc nếu muốn an toàn, phải gọi API HTTP sang User Service để lấy categories.
-    
-    for item in budgets_data:
-        category = str(item.get("category", "")).strip()
-        limit = float(item.get("limit_amount", 0))
+        start_month = start.month
+        start_year = start.year
 
-        if not category: continue
-
-        existing = db.query(models.Budget).filter(
+        # 1. Nhóm toàn bộ ngân sách hiện tại theo category
+        current_budgets = db.query(models.Budget).filter(
             models.Budget.user_id == current_user["id"],
-            models.Budget.category == category,
-            models.Budget.start_date == start,
-            models.Budget.end_date == end,
+            func.extract('month', models.Budget.start_date) == start_month,
+            func.extract('year', models.Budget.start_date) == start_year,
             models.Budget.period_type == period_type
-        ).first()
+        ).all()
 
-        if limit == 0:
-            if existing: db.delete(existing)
-            continue
+        budget_map = {}
+        for b in current_budgets:
+            if b.category not in budget_map:
+                budget_map[b.category] = []
+            budget_map[b.category].append(b)
 
-        if existing:
-            existing.limit_amount = limit
-        else:
-            new_budget = models.Budget(
-                category=category,
-                limit_amount=limit,
-                spent_amount=0.0, # Ban đầu luôn là 0
-                period_type=period_type,
-                start_date=start,
-                end_date=end,
-                user_id=current_user["id"],
-            )
-            db.add(new_budget)
+        # 2. Lấy danh sách category từ Frontend gửi lên
+        payload_categories = {str(item.get("category", "")).strip() for item in budgets_data if str(item.get("category", "")).strip()}
 
-    db.commit()
-    return {"message": "Đã cập nhật ngân sách thành công!"}
+        # 3. Xóa các ngân sách không còn tồn tại
+        for cat, b_list in budget_map.items():
+            if cat not in payload_categories:
+                for b in b_list:
+                    db.delete(b)
+
+        # 4. Xử lý lưu đè và tạo mới
+        for item in budgets_data:
+            cat = str(item.get("category", "")).strip()
+            limit = float(item.get("limit_amount", 0))
+
+            if not cat: continue
+
+            existing_list = budget_map.get(cat, [])
+
+            if limit == 0:
+                # Nếu Frontend gửi số 0 -> Đòi xóa -> Xóa sạch!
+                for ex in existing_list:
+                    db.delete(ex)
+                continue
+
+            if existing_list:
+                # Giữ lại cái đầu tiên để bảo toàn số tiền đã tiêu, xóa các bản sao lỗi
+                existing_list[0].limit_amount = limit
+                for ex in existing_list[1:]:
+                    db.delete(ex)
+            else:
+                # Tạo mới hoàn toàn
+                new_budget = models.Budget(
+                    category=cat,
+                    limit_amount=limit,
+                    spent_amount=0.0,
+                    period_type=period_type,
+                    start_date=start,
+                    end_date=end,
+                    user_id=current_user["id"],
+                )
+                db.add(new_budget)
+
+        db.commit()
+        return {"message": "Đã cập nhật ngân sách thành công!"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Lỗi hệ thống Backend: {str(e)}")
 
 # ==========================================
 # 3. TỔNG HỢP SỐ LIỆU (DASHBOARD SUMMARY)

@@ -61,3 +61,10 @@ class UserUpdateProfile(BaseModel):
     dob: Optional[date] = None
 
     model_config = ConfigDict(from_attributes=True)
+    
+    @field_validator('dob', mode='before')
+    @classmethod
+    def parse_dob(cls, v):
+        if v == "" or v is None:
+            return None
+        return v

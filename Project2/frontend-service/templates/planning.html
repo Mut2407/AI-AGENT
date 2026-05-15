@@ -258,7 +258,7 @@
                 <h4 style="margin-top: 0; color: var(--text-primary); margin-bottom: 10px;">Thêm danh mục ngân sách</h4>
                 <div class="budget-add-group" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <input type="text" id="newBudgetCategory" class="wizard-input" style="flex: 2; margin-bottom: 0;" placeholder="Tên danh mục (VD: Du lịch)">
-                    <input type="text" id="newBudgetAmount" class="wizard-input" style="flex: 1; margin-bottom: 0;" placeholder="Hạn mức">
+                    <input type="text" id="newBudgetAmount" class="wizard-input" style="flex: 1; margin-bottom: 0;" placeholder="Hạn mức" oninput="formatCurrencyInput(this)">
                     <button onclick="addNewBudgetCategory()" class="nav-button" style="background-color: var(--accent); color: white; width: auto; border: none; padding: 12px 20px;"><i class="fa-solid fa-plus"></i> Thêm</button>
                 </div>
             </div>
@@ -328,6 +328,11 @@
         let allJarsCache = [];
         let currentTransferType = 'deposit';
         let selectedTargetJarId = null;
+
+        window.categoriesList = [];
+        window.incomeCategories = [];
+        window.planCurrency = "usd";
+        window.planRates = { vnd: 1, usd: 25400 };
 
         const getISODate = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -430,7 +435,7 @@
         }
 
         async function initJarSetupUI() {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             const res = await fetch('/api/planning/jars', { headers: { 'Authorization': `Bearer ${token}` } });
             const jars = await res.json();
             allJarsCache = jars;
@@ -463,7 +468,7 @@
             const ok = await showCustomConfirm("Bạn muốn xóa quỹ này? Lưu ý: Hũ phải hết tiền mới xóa được.");
             if (!ok) return;
 
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             try {
                 const res = await fetch(`/api/planning/jars/${jarId}`, { 
                     method: 'DELETE', 
@@ -557,7 +562,7 @@
             btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
             btnSave.disabled = true;
 
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             try {
                 const res = await fetch('/api/planning/jars/bulk', { 
                     method: 'POST', 
@@ -675,7 +680,7 @@
             const rate = window.planRates[window.planCurrency] || 1; 
             
             try {
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem('token') || localStorage.getItem('access_token');
                 const res = await fetch('/api/planning/jars/history/all', { headers: { 'Authorization': `Bearer ${token}` } });
                 
                 if (!res.ok) throw new Error("Lỗi tải dữ liệu");
@@ -720,32 +725,29 @@
 
 
         async function initBudgetInputs() {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             const rate = window.planRates[window.planCurrency] || 1;
             
-            const { start, end } = getPeriodBoundsOverride(currentDate, currentPeriodType);
-            const startStr = getISODate(start);
-            const endStr = getISODate(end);
+            const headers = { 'Authorization': `Bearer ${token}` };
             
             try {
-                const resBudgets = await fetch(`/api/planning/budgets?start_date=${startStr}&end_date=${endStr}&period_type=${currentPeriodType}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                const existingBudgets = await resBudgets.json();
+                const { start, end } = getPeriodBoundsOverride(currentDate, currentPeriodType);
+                const startStr = getISODate(start);
+                const endStr = getISODate(end);
+                
+                let existingBudgets = [];
+                // Gọi thẳng API lấy ngân sách theo ngày đã tính
+                const resBudgets = await fetch(`/api/planning/budgets?start_date=${startStr}&end_date=${endStr}&period_type=${currentPeriodType}`, { headers });
+                
+                if (resBudgets.ok) {
+                    existingBudgets = await resBudgets.json();
+                }
                 
                 const container = document.getElementById('budgetInputsContainer');
                 container.innerHTML = '';
 
-                const uniqueCats = [];
-                const seen = new Set();
-                window.categoriesList.forEach(cat => {
-                    const lowerCat = cat.toLowerCase();
-                    if (!seen.has(lowerCat)) {
-                        seen.add(lowerCat);
-                        uniqueCats.push(cat);
-                    }
-                });
-                window.categoriesList = uniqueCats; 
-
-                window.categoriesList.forEach(cat => {
+                // Hiển thị các ô nhập ngân sách
+                (window.categoriesList || []).forEach(cat => {
                     const found = existingBudgets.find(b => b.category === cat);
                     const currentLimit = found && found.limit_amount > 0 ? (found.limit_amount / rate).toFixed(0) : '';
 
@@ -758,16 +760,19 @@
                                    oninput="formatCurrencyInput(this); updateTotalBudgetSum();"
                                    style="width: 120px; margin-bottom: 0; text-align: right;" 
                                    placeholder="0">
-                            <button onclick="deleteBudgetRow(this, '${cat}')" style="background: none; border: none; color: #ff4d4d; cursor: pointer; padding: 5px;" data-tooltip="Xóa">
+                            <button onclick="deleteBudgetRow(this, '${cat}')" style="background: none; border: none; color: #ff4d4d; cursor: pointer; padding: 5px;">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>`;
                 });
                 updateTotalBudgetSum();
-            } catch (e) { console.error("Lỗi nạp budget inputs:", e); }
+                updatePeriodDisplay();
+            } catch (e) { console.error("Lỗi nạp ngân sách:", e); }
         }
 
         function addNewBudgetCategory() {
+            if (!Array.isArray(window.categoriesList)) window.categoriesList = [];
+            
             const catInput = document.getElementById('newBudgetCategory');
             const amtInput = document.getElementById('newBudgetAmount');
             let catName = catInput.value.trim();
@@ -786,11 +791,14 @@
             }
 
             catName = catName.charAt(0).toUpperCase() + catName.slice(1).toLowerCase();
-            const existingCat = window.categoriesList.find(c => c.toLowerCase() === catName.toLowerCase());
+            const existingCat = (window.categoriesList || []).find(c => c.toLowerCase() === catName.toLowerCase());
             if (existingCat) {
                 catName = existingCat; 
             } else {
-                window.categoriesList.push(catName); 
+                if (!window.categoriesList.some(c => c.toLowerCase() === catName.toLowerCase())) {
+                    window.categoriesList.push(catName);
+                    saveCategoriesImmediately();
+                }
             }
 
             const container = document.getElementById('budgetInputsContainer');
@@ -799,10 +807,10 @@
             if (existingRow) {
                 existingRow.value = rawAmount; 
                 existingRow.setAttribute('value', rawAmount); 
-                existingRow.closest('div').style.display = 'flex'; 
+                existingRow.closest('.budget-row-container').style.display = 'flex';
             } else {
                 container.insertAdjacentHTML('beforeend', `
-                    <div class="budget-row-container" style="background-color: var(--bg-primary); padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); margin-top: 10px;">
+                    <div class="budget-row-container" style="background-color: var(--bg-primary); padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); margin-bottom: 10px;">
                         <span style="flex: 1; color: var(--accent); font-weight: 500;">${catName}</span>
                         <input type="text" class="wizard-input budget-mass-input" 
                                data-category="${catName}" 
@@ -810,7 +818,7 @@
                                oninput="formatCurrencyInput(this); updateTotalBudgetSum();"
                                style="width: 120px; margin-bottom: 0; text-align: right;" 
                                placeholder="0">
-                        <button onclick="deleteBudgetRow(this)" style="background: none; border: none; color: #ff4d4d; cursor: pointer; padding: 5px;" data-tooltip="Xóa">
+                        <button onclick="deleteBudgetRow(this, '${catName}')" style="background: none; border: none; color: #ff4d4d; cursor: pointer; padding: 5px;" data-tooltip="Xóa">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>`);
@@ -821,45 +829,47 @@
             showToast(`Đã thêm hạn mức cho "${catName}". Nhớ bấm "Lưu Tất Cả" nhé!`, "success");
         }
         
-        window.deleteBudgetRow = function(btnElement) {
-            const row = btnElement.closest('div');
+        async function saveCategoriesImmediately() {
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+
+            try {
+                await fetch('/api/categories/edit', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        expenseCategories: window.categoriesList,
+                        incomeCategories: window.incomeCategories || ["Lương", "Thưởng", "Đầu tư", "Khác"]
+                    })
+                });
+            } catch (e) {
+                console.error("Lỗi lưu categories:", e);
+            }
+        }
+
+        window.deleteBudgetRow = async function(btnElement, catName) {
+            const isConfirmed = await showCustomConfirm(`Bạn có chắc muốn xóa ngân sách của "${catName}" trong tháng này?`);
+            if (!isConfirmed) return;
+
+            const row = btnElement.closest('.budget-row-container');
             const input = row.querySelector('.budget-mass-input');
             input.value = "0"; 
             input.setAttribute('value', '0'); 
             row.style.display = 'none'; 
             updateTotalBudgetSum();
+            
+            await saveBudgetsBulk();
         };
-
-        async function deleteBudget(category) {
-            const isConfirmed = await showCustomConfirm(`Bạn có chắc chắn muốn xóa ngân sách của mục "${category}" không?`);
-            if (!isConfirmed) return;
-
-            const { start, end } = getPeriodBoundsOverride(currentDate, currentPeriodType);
-            const startStr = getISODate(start);
-            const endStr = getISODate(end);
-
-            const token = localStorage.getItem('token');
-            try {
-                const res = await fetch(`/api/planning/budgets/${encodeURIComponent(category)}?start_date=${startStr}&end_date=${endStr}&period_type=${currentPeriodType}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    showToast("Đã xóa ngân sách thành công!", "success");
-                    const input = document.querySelector(`.budget-mass-input[data-category="${category}"]`);
-                    if(input) { 
-                        input.value = '0'; 
-                        input.setAttribute('value', '0'); 
-                        updateTotalBudgetSum(); 
-                    }
-                    await loadPlanningData(); 
-                }
-            } catch (e) { showToast("Có lỗi xảy ra khi xóa!", "error"); }
-        }
 
         function updateTotalBudgetSum() {
             let total = 0;
-            document.querySelectorAll('.budget-mass-input').forEach(i => total += parseFloat(i.value.replace(/,/g, '')) || 0);
+            document.querySelectorAll('.budget-mass-input').forEach(i => {
+                if (i.closest('.budget-row-container').style.display !== 'none') {
+                    total += parseFloat(i.value.replace(/,/g, '')) || 0;
+                }
+            });
             document.getElementById('totalBudgetDisplay').innerText = formatPlanMoney(total);
         }
 
@@ -867,46 +877,45 @@
             const inputs = document.querySelectorAll('.budget-mass-input');
             const budgetsData = [];
             const rate = window.planRates[window.planCurrency] || 1;
-            let hasError = false;
-
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+            
+            // 1. Thu thập dữ liệu từ các ô nhập
             inputs.forEach(i => {
+                const row = i.closest('.budget-row-container');
                 const rawVal = i.value.trim().replace(/,/g, '');
-                if (rawVal === "" || rawVal === "0") {
-                    budgetsData.push({ category: i.dataset.category, limit_amount: 0 });
-                    return;
+                const val = (rawVal === "" || rawVal === "0") ? 0 : Number(rawVal);
+                const cat = i.dataset.category;
+
+                // Gửi ngân sách (kể cả số 0 để Backend xóa)
+                budgetsData.push({ category: cat, limit_amount: val * rate });
+
+                // Nếu người dùng vừa gõ thêm 1 danh mục hoàn toàn mới và danh mục đó chưa có trong list gốc, thì mới push thêm vào.
+                // TUYỆT ĐỐI KHÔNG XÓA danh mục cũ!
+                if (row.style.display !== 'none' && !window.categoriesList.includes(cat)) {
+                    window.categoriesList.push(cat);
                 }
-                const val = Number(rawVal);
-                if (isNaN(val) || val < 0) { hasError = true; } 
-                else { budgetsData.push({ category: i.dataset.category, limit_amount: val * rate }); }
             });
 
-            if (hasError) { showToast("Dữ liệu hạn mức không hợp lệ!", "error"); return; }
-
-            const token = localStorage.getItem('token');
-            
             try {
-                const payloadCats = {
-                    expenseCategories: window.categoriesList,
-                    incomeCategories: window.incomeCategories || ["Lương", "Thưởng", "Đầu tư", "Khác"]
-                };
+                // 2. Cập nhật danh mục sang User Service (Cái cũ được giữ nguyên, chỉ thêm cái mới)
                 await fetch('/api/categories/edit', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payloadCats)
+                    body: JSON.stringify({
+                        expenseCategories: window.categoriesList,
+                        incomeCategories: window.incomeCategories || ["Lương", "Thưởng", "Đầu tư", "Khác"]
+                    })
                 });
-            } catch(e) {
-                console.error("Lỗi đồng bộ danh mục:", e);
-            }
 
-            const { start, end } = getPeriodBoundsOverride(currentDate, currentPeriodType);
-            const payload = { 
-                start_date: getISODate(start), 
-                end_date: getISODate(end), 
-                period_type: currentPeriodType, 
-                budgets: budgetsData 
-            };
-            
-            try {
+                // 3. Gửi lệnh tạo/xóa ngân sách sang Budget Service
+                const { start, end } = getPeriodBoundsOverride(currentDate, currentPeriodType);
+                const payload = { 
+                    start_date: getISODate(start), 
+                    end_date: getISODate(end), 
+                    period_type: currentPeriodType, 
+                    budgets: budgetsData 
+                };
+                
                 const res = await fetch('/api/planning/budgets/bulk', { 
                     method: 'POST', 
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, 
@@ -914,83 +923,93 @@
                 });
                 
                 if (res.ok) { 
-                    showToast("Đã lưu tất cả ngân sách thành công!", "success"); 
+                    showToast("Đã lưu ngân sách thành công!", "success"); 
                     await loadPlanningData(); 
+                    initBudgetInputs(); 
                 } else {
-                    const err = await res.json();
-                    showToast(err.detail || "Lỗi khi lưu dữ liệu lên máy chủ!", "error");
+                    const errText = await res.text();
+                    console.error("Backend Error:", errText);
+                    showToast("Lỗi hệ thống khi lưu ngân sách!", "error");
                 }
-            } catch (e) { showToast("Lỗi kết nối mạng!", "error"); }
+            } catch (e) { 
+                console.error("Fetch Error:", e);
+                showToast("Lỗi kết nối mạng!", "error"); 
+            }
         }
 
         async function loadPlanningData() {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             const rate = window.planRates[window.planCurrency] || 1;
             const headers = { 'Authorization': `Bearer ${token}` };
-            const { start, end } = getPeriodBoundsOverride(currentDate, currentPeriodType);
 
             try {
+                // 1. Tải danh sách Hũ
                 const resJars = await fetch('/api/planning/jars', { headers });
                 const jars = await resJars.json();
-                allJarsCache = jars;
                 const jContainer = document.getElementById('jarsContainer');
                 jContainer.innerHTML = '';
                 
                 jars.forEach(j => {
                     const percent = j.goal_amount > 0 ? Math.min((j.balance / j.goal_amount) * 100, 100) : 0;
-                    
-                    let goalHint = "";
-                    let hintColor = "var(--text-secondary)";
-                    
-                    if (percent >= 100) {
-                        goalHint = "Tuyệt vời! Bạn đã hoàn thành mục tiêu.";
-                        hintColor = "#4ade80";
-                    } else if (percent >= 50) {
-                        goalHint = " Đã đi được nửa chặng đường! Cố lên.";
-                        hintColor = "#fbbf24";
-                    } else if (j.goal_amount > 0) {
-                        goalHint = " Hãy tích lũy thêm để sớm đạt mục tiêu nhé.";
-                    }
-
                     jContainer.innerHTML += `
                         <div class="jar-card" onclick="showTransferModal(${j.id}, '${j.name}', ${j.balance})">
                             <i class="fa-solid fa-piggy-bank" style="font-size:1.8rem;color:var(--accent);"></i>
                             <div style="font-weight:bold; color: var(--text-primary); margin:8px 0;">${j.name}</div>
                             <div style="color:#4ade80; font-size: 1.1rem; font-weight:bold;">${formatPlanMoney(j.balance / rate)}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 5px;">Mục tiêu: ${formatPlanMoney(j.goal_amount / rate)}</div>
-                            
                             <div class="progress-container" style="height: 6px;">
                                 <div class="progress-bar" style="width: ${percent}%; background: #4ade80;"></div>
-                            </div>
-                            
-                            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-top: 5px;">
-                                <span style="color: ${hintColor}; font-weight: 500;">${goalHint}</span>
-                                <span>${percent.toFixed(1)}%</span>
                             </div>
                         </div>`;
                 });
 
-                const resBudgets = await fetch(`/api/planning/budgets?start_date=${getISODate(start)}&end_date=${getISODate(end)}&period_type=${currentPeriodType}`, { headers });
+                // 2. Tải danh sách Ngân sách 
+                const { start, end } = getPeriodBoundsOverride(currentDate, currentPeriodType);
+                const startStr = getISODate(start);
+                const endStr = getISODate(end);
+                
+                const resBudgets = await fetch(`/api/planning/budgets?start_date=${startStr}&end_date=${endStr}&period_type=${currentPeriodType}`, { headers });
                 const budgets = await resBudgets.json();
+                
                 const bContainer = document.getElementById('budgetsContainer');
                 bContainer.innerHTML = '';
                 budgets.filter(b => b.limit_amount > 0).forEach(b => {
-                    const percent = Math.min((b.spent_amount / b.limit_amount) * 100, 100);
-                    const daysLeft = Math.max(1, Math.ceil((end - new Date()) / (1000 * 60 * 60 * 24)));
-                    const suggest = b.limit_amount > b.spent_amount ? `Gợi ý: Tiêu tối đa <b>${formatPlanMoney((b.limit_amount - b.spent_amount) / (rate * daysLeft))}</b>/ngày.` : `<span style="color:#ff4d4d;">Đã hết ngân sách!</span>`;
+                    const percent = (b.spent_amount / b.limit_amount) * 100;
+                    const displayPercent = Math.min(percent, 100);
+
+                    let barColor = '#4ade80';
+                    if (percent > 90) barColor = '#f87171';
+                    else if (percent > 75) barColor = '#fbbf24';
+
+                    // Tính toán gợi ý chi tiêu hàng ngày
+                    const endDate = new Date(b.end_date);
+                    const daysLeft = Math.max(1, Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24)));
+                    let suggestText = "";
+                    
+                    if (b.limit_amount > b.spent_amount) {
+                        const dailySafe = (b.limit_amount - b.spent_amount) / (rate * daysLeft);
+                        suggestText = `<i class="fa-solid fa-lightbulb" style="color: #fbbf24;"></i> Gợi ý: Tiêu tối đa <b>${formatPlanMoney(dailySafe)}</b>/ngày.`;
+                    } else {
+                        suggestText = `<i class="fa-solid fa-circle-exclamation" style="color: #f87171;"></i> <b>Đã vượt ngân sách!</b> Hãy cắt giảm chi tiêu mục này.`;
+                    }
                     bContainer.innerHTML += `
                         <div class="budget-card">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                                 <span style="font-weight: bold; color: var(--text-primary);">${b.category}</span>
-                                <span style="color: var(--text-secondary); font-size: 0.85rem;">${formatPlanMoney(b.spent_amount/rate)} / ${formatPlanMoney(b.limit_amount/rate)}</span>
+                                <span style="color: var(--text-secondary); font-size: 0.85rem;">
+                                    ${formatPlanMoney(b.spent_amount/rate)} / ${formatPlanMoney(b.limit_amount/rate)}
+                                </span>
                             </div>
-                            <div class="progress-container"><div class="progress-bar" style="width: ${percent}%; background: ${percent > 90 ? '#f87171' : (percent > 75 ? '#fbbf24' : '#4ade80')};"></div></div>
-                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;"><i class="fa-solid fa-lightbulb" style="color: #fbbf24;"></i> ${suggest}</div>
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width: ${displayPercent}%; background: ${barColor};"></div>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
+                                ${suggestText}
+                            </div>
                         </div>`;
                 });
-                await loadGlobalJarHistory();
+                
+                updatePeriodDisplay();
             } catch (e) { console.error(e); }
-            filterJars();
         }
 
         document.getElementById("periodSelect").addEventListener("change", (e) => { currentPeriodType = e.target.value; updatePeriodDisplay(); initBudgetInputs(); loadPlanningData(); });
@@ -1008,15 +1027,31 @@
         });
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             if(!token) return;
-            const res = await fetch("/api/config", { headers: { 'Authorization': `Bearer ${token}` } });
-            const config = await res.json();
-            window.categoriesList = config.expenseCategories || ["Ăn uống", "Đi lại"];
-            window.planCurrency = config.currency || "usd";
-            window.planRates = { "vnd": 1, "usd": 25400 };
-            
+            // 1. Gán ngay giá trị mặc định để chống sập JS (Trả lại planRates cho bạn)
+            window.categoriesList = ["Ăn uống", "Đi lại"];
+            window.incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
+            window.planCurrency = "usd";
+            window.planRates = { "vnd": 1, "usd": 25400 }; 
+
+            // 2. Hiển thị ngày tháng (Tháng 5/2026) ra màn hình NGAY LẬP TỨC
             updatePeriodDisplay();
+
+            // 3. Gọi API ngầm để lấy cấu hình thật
+            try {
+                const res = await fetch("/api/config", { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.ok) {
+                    const config = await res.json();
+                    window.categoriesList = Array.isArray(config.expenseCategories) ? config.expenseCategories : window.categoriesList;
+                    window.incomeCategories = config.incomeCategories || window.incomeCategories;
+                    window.planCurrency = config.currency || window.planCurrency;
+                }
+            } catch (e) {
+                console.warn("API /api/config phản hồi chậm hoặc lỗi, tiếp tục dùng giá trị mặc định.", e);
+            }
+
+            // 4. Sau khi chuẩn bị xong, bắt đầu tải Ngân sách và Hũ
             initBudgetInputs();
             loadPlanningData();
         });
@@ -1024,6 +1059,21 @@
         function showLogoutModal() { document.getElementById('logoutConfirmModal').style.display = 'flex'; }
         function closeLogoutModal() { document.getElementById('logoutConfirmModal').style.display = 'none'; }
         function proceedLogout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+
+        function formatCurrencyInput(input) {
+            let value = input.value;
+            value = value.replace(/[^\d.]/g, '');
+            const parts = value.split('.');
+            if (parts.length > 2) {
+                value = parts[0] + '.' + parts.slice(1).join('');
+            }
+            if (value) {
+                let splitValue = value.split('.');
+                splitValue[0] = splitValue[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                value = splitValue.join('.');
+            }
+            input.value = value;
+        }
     </script>
 
     <div id="logoutConfirmModal" class="modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center;">

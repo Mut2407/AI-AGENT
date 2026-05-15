@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 import models, schemas, auth
 from database import get_db
-
+from sqlalchemy.orm.attributes import flag_modified
 router = APIRouter()
 
 # ==========================================
@@ -118,6 +118,10 @@ def update_categories(data: CategoryUpdate, db: Session = Depends(get_db), curre
     if config:
         config.categories = {"expenseCategories": data.expenseCategories, "incomeCategories": data.incomeCategories}
         if hasattr(config, 'is_new_user'): config.is_new_user = False
+        
+        # 🚀 CÔNG NGHỆ CỦA BẠN EM: Bắt buộc DB phải lưu JSON
+        flag_modified(config, "categories") 
+        
         db.commit()
     return {"message": "Cập nhật danh mục thành công"}
 
