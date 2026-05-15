@@ -34,7 +34,7 @@
                 const formData = new FormData();
                 formData.append('file', file);
 
-                const response = await fetch('/api/expenses/scan-pdf', {
+                const response = await fetch('/api/ai/scan-pdf', {
                     method: 'POST',
                     body: formData
                 });
@@ -197,7 +197,7 @@
                 try {
                     let successCount = 0;
                     for (const data of finalData) {
-                        const response = await fetch('/api/expenses/scan-receipt/confirm', {
+                        const response = await fetch('/api/ai/scan-receipt/confirm', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(data)
