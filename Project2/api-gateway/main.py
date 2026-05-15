@@ -26,8 +26,6 @@ SERVICES = {
     "ai": os.getenv("AI_SERVICE_URL", "http://localhost:8004"),
     "auth": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
     "config": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
-    
-    # 🚀 THÊM 5 DÒNG NÀY ĐỂ MỞ KHÓA TOÀN BỘ TRANG CÀI ĐẶT
     "currency": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
     "startdate": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),
     "categories": os.getenv("USER_SERVICE_URL", "http://localhost:8001"),

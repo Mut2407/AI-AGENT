@@ -311,6 +311,8 @@
                 logout();
             } else {
                 localStorage.removeItem('token');
+                localStorage.removeItem('access_token');
+                sessionStorage.clear(); // 🚀 THÊM DÒNG NÀY ĐỂ XÓA KẾT QUẢ CŨ
                 window.location.href = '/login';
             }
         }

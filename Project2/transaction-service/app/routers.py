@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Header
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Header, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
@@ -20,6 +20,7 @@ import kafka_pro
 # Giả định hàm get_current_user giờ đây chỉ giải mã JWT để lấy user_id 
 # (Không query Database để lấy cả bảng User nữa vì bảng User nằm ở service khác)
 from auth import get_current_user 
+<<<<<<< HEAD
 
 # ==========================================
 # HELPER FUNCTIONS: JAR + BUDGET
@@ -44,6 +45,9 @@ def update_budget_spent(db: Session, user_id: str, category: str, spent_amount: 
     pass
 
 
+=======
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Header, Request
+>>>>>>> 00da29cc79cc8d1faeb3e0775448448ede20ba1d
 router = APIRouter(prefix="/api/expenses", tags=["Expenses"])
 recurring_router = APIRouter(prefix="/api/recurring-expenses", tags=["Recurring Expenses"])
 
@@ -278,6 +282,83 @@ async def import_csv(
         "imported": imported,
         "skipped": skipped
     }
+
+# ==========================================
+# CÁC API NỘI BỘ (DÀNH RIÊNG CHO AI SERVICE)
+# ==========================================
+
+@router.get("/internal/user/{user_id}", response_model=List[schemas.TransactionResponse])
+def get_internal_user_transactions(user_id: str, db: Session = Depends(get_db)):
+    # 🚀 BÍ KÍP Ở ĐÂY: Bọc thêm str(user_id) để ép cứng nó thành chuỗi chữ
+    return db.query(models.Transaction).filter(models.Transaction.user_id == str(user_id)).all()
+
+@router.post("/internal/create", response_model=schemas.TransactionResponse)
+def create_internal_transaction(request: Request, data: dict, db: Session = Depends(get_db)):
+    user_id_str = request.headers.get("X-Internal-User-Id")
+    if not user_id_str:
+        raise HTTPException(status_code=401, detail="Thiếu thẻ thông hành nội bộ")
+    
+    new_id = str(uuid.uuid4())
+    db_txn = models.Transaction(
+        id=new_id,
+        name=data.get("name", "Giao dịch AI"),
+        amount=data.get("amount", 0.0),
+        category=data.get("category", "Khác"),
+        date=data.get("date", datetime.now()),
+        tags=data.get("tags", ["AI Chatbot"]),
+        user_id=str(user_id_str) # Ép kiểu String
+    )
+    db.add(db_txn)
+    db.commit()
+    db.refresh(db_txn)
+
+    # 🚀 AI BẮN SỰ KIỆN KAFKA CHO HỆ THỐNG
+    try:
+        kafka_pro.send_transaction_event("TRANSACTION_CREATED", {
+            "id": db_txn.id,
+            "user_id": db_txn.user_id,
+            "jar_id": db_txn.jar_id,
+            "amount": float(db_txn.amount),
+            "category": db_txn.category
+        })
+    except Exception as e:
+        print("Lỗi Kafka:", e)
+
+    return db_txn
+
+@router.put("/internal/update/{transaction_id}", response_model=schemas.TransactionResponse)
+def update_internal_transaction(transaction_id: str, request: Request, data: dict, db: Session = Depends(get_db)):
+    user_id_str = request.headers.get("X-Internal-User-Id")
+    if not user_id_str:
+        raise HTTPException(status_code=401, detail="Thiếu thẻ thông hành nội bộ")
+
+    db_txn = db.query(models.Transaction).filter(
+        models.Transaction.id == transaction_id, 
+        models.Transaction.user_id == str(user_id_str)
+    ).first()
+    
+    if db_txn:
+        if "name" in data: db_txn.name = data["name"]
+        if "amount" in data: db_txn.amount = data["amount"]
+        if "category" in data: db_txn.category = data["category"]
+        if "date" in data: db_txn.date = data["date"]
+        db.commit()
+        db.refresh(db_txn)
+
+        # 🚀 BẮN SỰ KIỆN CẬP NHẬT KAFKA
+        try:
+            kafka_pro.send_transaction_event("TRANSACTION_UPDATED", {
+                "id": db_txn.id,
+                "user_id": db_txn.user_id,
+                "jar_id": db_txn.jar_id,
+                "amount": float(db_txn.amount),
+                "category": db_txn.category
+            })
+        except Exception as e:
+            print("Lỗi Kafka:", e)
+
+        return db_txn
+    raise HTTPException(status_code=404, detail="Không tìm thấy giao dịch")
 
 # ==========================================
 # 3. GIAO DỊCH ĐỊNH KỲ (RECURRING)

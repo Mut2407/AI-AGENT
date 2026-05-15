@@ -1284,11 +1284,12 @@
         const categorySelect = document.getElementById("category");
         if (!categorySelect) return;
 
-        // Gom các mục chi và thu lại thành 2 nhóm rõ ràng
+        const currentValue = categorySelect.value;
+
+        // 🚀 Đồng bộ giống hệt history.html: Gộp 2 nhóm Thu - Chi
         const expOptions = expenseCategories.map(c => `<option value="${c}">${c}</option>`).join('');
         const incOptions = incomeCategories.map(c => `<option value="${c}">${c}</option>`).join('');
 
-        // Đổ vào thẻ select với tiêu đề nhóm in đậm
         categorySelect.innerHTML = `
           <optgroup label="🔻 KHOẢN CHI">
             ${expOptions}
@@ -1297,6 +1298,11 @@
             ${incOptions}
           </optgroup>
         `;
+
+        // Cố gắng giữ lại giá trị cũ đang chọn (nếu có)
+        if (currentValue && (expenseCategories.includes(currentValue) || incomeCategories.includes(currentValue))) {
+            categorySelect.value = currentValue;
+        }
       }
 
       let globalJars = [];
@@ -1359,7 +1365,7 @@
           if (!token) return; 
 
           
-          const resConfig = await fetch("/api/config", {
+          const resConfig = await fetch("/api/users/config", { // Đổi thành /users/config
             headers: { Authorization: `Bearer ${token}` },
           });
           const config = await resConfig.json();
@@ -1629,21 +1635,30 @@
             JSON.stringify(wData.colors),
           );
 
+          // 🚀 BÍ KÍP 3: Thêm chữ /users/ và gắn Token khi lưu Setup
+          const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+
           const payloadObject = {
             expenseCategories: wData.expenseCategories,
             incomeCategories: wData.incomeCategories,
           };
-          await fetch("/api/categories/edit", {
+          await fetch("/api/users/categories/edit", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
             body: JSON.stringify(payloadObject),
           }).catch((e) => {});
 
           const goal = document.getElementById("wFinancialGoal").value;
           const risk = document.getElementById("wRiskTolerance").value;
-          await fetch("/api/profile/edit", {
+          await fetch("/api/users/profile/edit", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
             body: JSON.stringify({ goal: goal, risk: risk }),
           }).catch((e) => {});
 
@@ -1880,64 +1895,53 @@
 
       async function initialize() {
         try {
-          let config = {
-            expenseCategories: ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"],
-            incomeCategories: ["Lương", "Thưởng", "Đầu tư", "Khác"],
-            currency: "usd",
-            startDate: 1,
-          };
-          
           let isNewUser = false;
-          let activeExpCats = config.expenseCategories;
-          let activeIncCats = config.incomeCategories;
 
+          // 1. GỌI API LẤY CẤU HÌNH (DANH MỤC TIẾNG VIỆT) TỪ USER-SERVICE
           try {
             const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-            const configResponse = await fetch(`/api/config?t=${new Date().getTime()}`, {
+            const configResponse = await fetch("/api/users/config", {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
             if (configResponse.ok) {
               const fetchedConfig = await configResponse.json();
               if (fetchedConfig) {
-                  config = { ...config, ...fetchedConfig };
-                  isNewUser = fetchedConfig.is_new_user; 
-                  
-                  // 🚀 PHÂN LOẠI THU/CHI CHUẨN XÁC TỪ DATABASE
-                  if (fetchedConfig.expenseCategories && fetchedConfig.incomeCategories) {
-                      activeExpCats = fetchedConfig.expenseCategories;
-                      activeIncCats = fetchedConfig.incomeCategories;
-                  } else if (fetchedConfig.categories) {
-                      // Nếu DB là tài khoản mới tinh (chỉ có mảng tiếng Anh mặc định)
-                      activeExpCats = fetchedConfig.categories;
-                  }
+                  // ÉP GÁN TRỰC TIẾP VÀO BIẾN TOÀN CỤC CỦA WEB
+                  expenseCategories = fetchedConfig.expenseCategories || ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
+                  incomeCategories = fetchedConfig.incomeCategories || ["Lương", "Thưởng", "Đầu tư", "Khác"];
+                  isNewUser = fetchedConfig.is_new_user;
+                  window.currentCurrency = fetchedConfig.currency || "usd";
               }
+            } else {
+                expenseCategories = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
+                incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
+                window.currentCurrency = "usd";
             }
-          } catch (e) { console.error("Lỗi khi tải cấu hình:", e); }
+          } catch (e) {
+              console.log("Lỗi tải config:", e);
+              expenseCategories = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
+              incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
+              window.currentCurrency = "usd";
+          }
 
-          // Cập nhật lại mảng toàn cục cho file HTML hiểu
-          expenseCategories = activeExpCats;
-          incomeCategories = activeIncCats;
           initialCategories = [...expenseCategories, ...incomeCategories];
           
-          // 🚀 Gọi hàm này để tự động cập nhật lại Dropdown tùy theo việc tick Thu hay Chi
+          // 🚀 GỌI HÀM NÀY ĐỂ VẼ LẠI CÁI DROPDOWN THÊM GIAO DỊCH LẬP TỨC
           updateExpenseFormCategoryOptions();
-
-          window.currentCurrency = config.currency || "usd";
           currentCurrency = window.currentCurrency;
-          window.startDate = config.startDate || 1;
 
+          // 2. GỌI API LẤY GIAO DỊCH TỪ TRANSACTION-SERVICE
           let fetchedExpenses = [];
           try {
             const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-            const response = await fetch(`/api/expenses/?t=${new Date().getTime()}`, {
+            const response = await fetch("/api/expenses/", {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
               const data = await response.json();
-              fetchedExpenses = Array.isArray(data) ? data : data && Array.isArray(data.expenses) ? data.expenses : [];
+              fetchedExpenses = Array.isArray(data) ? data : (data && Array.isArray(data.expenses) ? data.expenses : []);
             }
-          } catch (e) { console.error("Lỗi tải giao dịch:", e); }
+          } catch (e) { console.log("Lỗi tải giao dịch:", e); }
 
           allExpenses = fetchedExpenses.map((exp) => {
             let safeTags = [];
@@ -1950,11 +1954,6 @@
             if (typeof exp.date === "string" && exp.date.trim() !== "") safeDate = exp.date;
 
             let catName = exp.category || "Khác";
-            const exactMatch = initialCategories.find((c) => c === catName);
-            if (!exactMatch) {
-              const lowerMatch = initialCategories.find((c) => c.toLowerCase() === catName.toLowerCase());
-              if (lowerMatch) catName = lowerMatch;
-            }
             return { ...exp, amount: parseFloat(exp.amount) || 0, date: safeDate, tags: safeTags, category: catName };
           });
 
@@ -1964,24 +1963,28 @@
           const savedColors = JSON.parse(localStorage.getItem("customCategoryColors") || "{}");
           const uniqueCategories = [...new Set(allExpenses.map((exp) => exp.category))];
           initialCategories.forEach((c) => { if (!uniqueCategories.includes(c)) uniqueCategories.push(c); });
-
+          
+          // Tạo màu cho danh mục
+          const colorPalette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#F7464A', '#8a2be2'];
           uniqueCategories.forEach((category, index) => {
             if (savedColors[category]) {
               categoryColors[category] = savedColors[category];
             } else {
-              const foundKey = Object.keys(savedColors).find((k) => k.toLowerCase() === category.toLowerCase());
-              if (foundKey) categoryColors[category] = savedColors[foundKey];
-              else if (!categoryColors[category]) categoryColors[category] = colorPalette[index % colorPalette.length] || "#8a2be2";
+              categoryColors[category] = colorPalette[index % colorPalette.length] || "#8a2be2";
             }
           });
 
           updatePeriodDisplayOverride();
           await loadJarsForSelect();         
-          await loadJarsForTransactionForm(); 
-          updateChartAndLegend();            
-          setupTagInput();
+          if (typeof loadJarsForTransactionForm === "function") await loadJarsForTransactionForm(); 
           
-          checkSetupWizard(isNewUser); 
+          if (typeof updateChartAndLegend === "function") updateChartAndLegend();            
+          if (typeof updateTable === "function") updateTable();
+          
+          if (typeof setupTagInput === "function") setupTagInput();
+          
+          // 🚀 BẬT BẢNG SETUP WIZARD NẾU LÀ NGƯỜI MỚI HOẶC BỊ KẸT TIẾNG ANH
+          if (typeof checkSetupWizard === "function") checkSetupWizard(isNewUser); 
           
         } catch (error) {
           console.error("Lỗi chí mạng khi khởi tạo:", error);

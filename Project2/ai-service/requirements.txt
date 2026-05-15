@@ -7,3 +7,4 @@ google-genai
 Pillow
 PyMuPDF
 pandas
+python-multipart
