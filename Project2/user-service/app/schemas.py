@@ -62,7 +62,6 @@ class UserUpdateProfile(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
     
-    # Validator này giúp "ép" chuỗi rỗng thành None để không bị lỗi 422
     @field_validator('dob', mode='before')
     @classmethod
     def parse_dob(cls, v):
