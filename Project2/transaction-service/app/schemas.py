@@ -93,3 +93,32 @@ class RecurringTransactionResponse(RecurringTransactionBase):
     user_id: str # Đã đổi thành str để khớp với chuỗi UUID từ Token
     
     model_config = ConfigDict(from_attributes=True)
+
+
+# ==========================================
+# 3. SCHEMAS CHO HŨ (JAR)
+# ==========================================
+
+class JarBase(BaseModel):
+    name: str
+    percent: Optional[Decimal] = None
+    goal_amount: Optional[Decimal] = None
+    color: Optional[str] = "#8a2be2"
+    icon: Optional[str] = "fa-piggy-bank"
+
+class JarCreate(JarBase):
+    pass
+
+class JarUpdate(BaseModel):
+    name: Optional[str] = None
+    percent: Optional[Decimal] = None
+    goal_amount: Optional[Decimal] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+
+class JarResponse(JarBase):
+    id: int
+    balance: Decimal
+    user_id: str
+    
+    model_config = ConfigDict(from_attributes=True)
