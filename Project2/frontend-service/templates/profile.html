@@ -289,7 +289,8 @@
         function toggleEditMode() {
             document.getElementById('displayFullName').style.display = 'none';
             document.getElementById('editFullName').style.display = 'block';
-            document.getElementById('editFullName').value = currentUserData.full_name;
+            // Đảm bảo không bị undefined
+            document.getElementById('editFullName').value = currentUserData.full_name || '';
 
             document.getElementById('displayDob').style.display = 'none';
             document.getElementById('editDob').style.display = 'inline-block';
@@ -297,7 +298,7 @@
 
             document.getElementById('displayGender').style.display = 'none';
             document.getElementById('editGender').style.display = 'inline-block';
-            document.getElementById('editGender').value = currentUserData.gender || 'secret';
+            document.getElementById('editGender').value = currentUserData.gender || ''; 
 
             document.getElementById('viewActions').style.display = 'none';
             document.getElementById('editActions').style.display = 'flex';
@@ -325,6 +326,13 @@
                 return;
             }
 
+            // Lọc dữ liệu trước khi gửi
+            const updateData = {
+                full_name: newName,
+                dob: newDob !== "" ? newDob : null,
+                gender: newGender !== "" ? newGender : null
+            };
+
             const token = localStorage.getItem('access_token');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -333,18 +341,25 @@
             try {
                 const res = await fetch('/api/auth/me/update', {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ full_name: newName, dob: newDob, gender: newGender })
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify(updateData) 
                 });
 
                 if (res.ok) {
                     if(window.showToast) showToast("Đã lưu thông tin cá nhân!", "success");
-                    cancelEdit();
-                    loadProfile();
+                    cancelEdit(); 
+                    loadProfile(); 
                 } else {
-                    if(window.showToast) showToast("Lỗi khi cập nhật!", "error");
+                    //in log lỗi ra 
+                    const errData = await res.json();
+                    console.error("Chi tiết lỗi từ Backend:", errData);
+                    if(window.showToast) showToast("Lỗi khi cập nhật! Vui lòng kiểm tra lại.", "error");
                 }
             } catch (e) {
+                console.error("Lỗi mạng:", e);
                 if(window.showToast) showToast("Lỗi kết nối máy chủ", "error");
             } finally {
                 btn.innerHTML = originalText;
