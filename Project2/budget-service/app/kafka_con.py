@@ -4,14 +4,19 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 import models
 from decimal import Decimal
+from datetime import datetime
+import os
+
 
 def start_kafka_consumer():
     consumer = KafkaConsumer(
         'transaction-events', # Tên kênh lắng nghe
-        bootstrap_servers=['localhost:9092'],
+        bootstrap_servers=[os.getenv("KAFKA_BROKER", "kafka:9092")],
         auto_offset_reset='earliest',
         value_deserializer=lambda x: json.loads(x.decode('utf-8'))
     )
+
+    print("📡 Kafka Consumer đang lắng nghe giao dịch...")
 
     for message in consumer:
         event = message.value
@@ -20,15 +25,27 @@ def start_kafka_consumer():
         
         db: Session = SessionLocal()
         try:
+            amount = Decimal(str(data["amount"]))
+            user_id = data["user_id"]
+            category = data.get("category")
+            trans_date_str = data.get("transaction_date")
+            # ==========================================
+            # TRƯỜNG HỢP 1: TẠO MỚI GIAO DỊCH
+            # ==========================================
             if event_type == "TRANSACTION_CREATED":
-                amount = data["amount"]
-                user_id = data["user_id"]
-                
                 # 1. Nếu là chi tiêu -> Cập nhật Ngân sách
                 if amount < 0:
-                    category = data["category"]
-                    # Tìm ngân sách khớp với user_id và category trong tháng này để cộng dồn
-                    # ... logic query sqlalchemy ...
+                    if category and trans_date_str:
+                        trans_date = datetime.strptime(trans_date_str[:10], "%Y-%m-%d").date()
+                        budget = db.query(models.Budget).filter(
+                            models.Budget.user_id == user_id,
+                            models.Budget.category == category,
+                            models.Budget.start_date <= trans_date,
+                            models.Budget.end_date >= trans_date
+                        ).first()
+                        
+                        if budget:
+                            budget.spent_amount += abs(amount)
                     
                 # 2. Nếu có jar_id -> Trừ tiền trong Hũ
                 if amount < 0 and data.get("jar_id"):
@@ -42,6 +59,27 @@ def start_kafka_consumer():
                     for jar in user_jars:
                         if jar.percent > 0:
                             jar.balance += Decimal(str(amount)) * (jar.percent / Decimal('100'))
+
+            # ==========================================
+            # TRƯỜNG HỢP 2: XÓA GIAO DỊCH (HOÀN TÁC)
+            # ==========================================
+            elif event_type == "TRANSACTION_DELETED":
+                if amount < 0:
+                    # Giảm chi tiêu trong Ngân sách
+                    if category and trans_date_str:
+                        trans_date = datetime.strptime(trans_date_str[:10], "%Y-%m-%d").date()
+                        budget = db.query(models.Budget).filter(
+                            models.Budget.user_id == user_id,
+                            models.Budget.category == category,
+                            models.Budget.start_date <= trans_date,
+                            models.Budget.end_date >= trans_date
+                        ).first()
+                        
+                        if budget:
+                            budget.spent_amount -= abs(amount)
+                            # Tránh trường hợp trừ lố về số âm
+                            if budget.spent_amount < 0: 
+                                budget.spent_amount = 0
             
             db.commit()
         except Exception as e:
