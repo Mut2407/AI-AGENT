@@ -21,4 +21,5 @@ jobs:
           script: |
             cd ~/AI-AGENT/Project2
             git pull origin main
+            docker-compose down  # 🚀 THÊM DÒNG NÀY ĐỂ DỌN RÁC CŨ
             docker-compose up -d --build
