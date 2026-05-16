@@ -16,7 +16,7 @@ from pydantic import BaseModel
 router = APIRouter()
 class ExtractRequest(BaseModel):
     text: str
-@router.post("/api/ai/extract")
+@app.post("/api/ai/extract")
 def extract_expense_info(request: ExtractRequest):
     try:
         # Khởi tạo AI (Tự động lấy key từ biến môi trường GEMINI_API_KEY)
