@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
@@ -6,14 +6,27 @@ import json
 import time
 import random
 import requests
-from datetime import datetime
 import re
-from datetime import datetime, timedelta # 🚀 Thêm timedelta
+from datetime import datetime, timedelta
 import services
 from google import genai
-from fastapi import FastAPI, HTTPException, APIRouter
-from pydantic import BaseModel
-router = APIRouter()
+
+# 🚀 BƯỚC 1: KHỞI TẠO APP VÀ MIDDLEWARE NGAY TRÊN CÙNG
+app = FastAPI(title="ExpenseOwl AI Service")
+
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_credentials=True, 
+    allow_methods=["*"], 
+    allow_headers=["*"]
+)
+
+# 🚀 BƯỚC 2: KHAI BÁO CÁC BIẾN MÔI TRƯỜNG 
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8000")
+TXN_SERVICE_URL = os.getenv("TXN_SERVICE_URL", "http://transaction-service:8000")
+
+# 🚀 BƯỚC 3: CÁC MODEL VÀ API CỦA EM
 class ExtractRequest(BaseModel):
     text: str
 @app.post("/api/ai/extract")
