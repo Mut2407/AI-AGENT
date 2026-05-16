@@ -851,6 +851,7 @@
           >
             Đang tính toán...
           </div>
+          <div id="dbNearGoalValue" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">0% — $0.00</div>
           <div
             id="dbNearGoalBar"
             style="
@@ -1361,7 +1362,7 @@
       async function updateJarDashboardSummary() {
         try {
           
-          const token = localStorage.getItem("token");
+          const token = localStorage.getItem("token") || localStorage.getItem("access_token");
           if (!token) return; 
 
           
@@ -1400,20 +1401,15 @@
 
           
           if (data.near_goal) {
+            document.getElementById("dbNearGoal").innerText = data.near_goal.name;
+            document.getElementById("dbNearGoalProgress").style.width = data.near_goal.percent + "%";
             
-            document.getElementById("dbNearGoal").innerText =
-              data.near_goal.name;
-            
-            document.getElementById("dbNearGoalProgress").style.width =
-              data.near_goal.percent + "%";
-            
-            document.getElementById("dbNearGoal").title =
-              `Tiến độ: ${data.near_goal.percent}%`;
+            const formattedNearBal = formatMoney(data.near_goal.balance / rate);
+            document.getElementById("dbNearGoalValue").innerHTML = `<span style="color: #fbbf24; font-weight: bold;">${data.near_goal.percent}%</span> — Số dư: ${formattedNearBal}`;
           } else {
-            
-            document.getElementById("dbNearGoal").innerText =
-              "Chưa có mục tiêu";
+            document.getElementById("dbNearGoal").innerText = "Chưa có hũ nào sắp hoàn thành mục tiêu";
             document.getElementById("dbNearGoalProgress").style.width = "0%";
+            document.getElementById("dbNearGoalValue").innerText = "Chưa có dữ liệu";
           }
 
           
@@ -2189,7 +2185,7 @@
       }
 
       async function loadDashboardBudgets(periodExpenses) {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token") || localStorage.getItem("access_token");
         if (!token) return;
 
         const rate =

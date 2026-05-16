@@ -415,40 +415,11 @@ def get_dashboard_summary(db: Session = Depends(get_db), current_user: dict = De
     Hàm này lấy tổng số dư các hũ và tổng chi tiêu hiện tại
     để Frontend vẽ biểu đồ tổng quan.
     """
-    # # 1. Tính tổng số dư hiện có trong tất cả các hũ
-    # total_balance_query = db.query(func.sum(models.Jar.balance)).filter(
-    #     models.Jar.user_id == current_user["id"]
-    # ).scalar()
-    
-    # total_balance = float(total_balance_query) if total_balance_query else 0.0
-
-    # # 2. Tính tổng số tiền đã chi tiêu trong tháng này
-    # # (Vì bảng Budget lưu spent_amount nên ta cộng tổng cái đó lại)
-    # current_month = datetime.now().month
-    # current_year = datetime.now().year
-    
-    # total_spent_query = db.query(func.sum(models.Budget.spent_amount)).filter(
-    #     models.Budget.user_id == current_user["id"],
-    #     func.extract('month', models.Budget.start_date) == current_month,
-    #     func.extract('year', models.Budget.start_date) == current_year
-    # ).scalar()
-    
-    # total_spent = float(total_spent_query) if total_spent_query else 0.0
-
-    # # Trả về kết quả cho Frontend
-    # return {
-    #     "total_balance": total_balance,
-    #     "total_spent": total_spent,
-    #     "active_jars_count": db.query(models.Jar).filter(models.Jar.user_id == current_user["id"]).count(),
-    #     "active_budgets_count": db.query(models.Budget).filter(
-    #         models.Budget.user_id == current_user["id"],
-    #         func.extract('month', models.Budget.start_date) == current_month,
-    #         func.extract('year', models.Budget.start_date) == current_year
-    #     ).count()
-    # }
     uid = str(current_user["id"])
     
-    # 1. Dữ liệu Hũ
+    # ==========================================
+    # 1. XỬ LÝ DỮ LIỆU HŨ (JARS)
+    # ==========================================
     jars = db.query(models.Jar).filter(models.Jar.user_id == uid).all()
     total_balance = sum(j.balance for j in jars)
     
@@ -457,26 +428,60 @@ def get_dashboard_summary(db: Session = Depends(get_db), current_user: dict = De
     for j in jars:
         if j.goal_amount > 0:
             percent = float((j.balance / j.goal_amount) * 100)
-            if percent < 100 and percent > max_percent:
+            if 80 <= percent < 100 and percent > max_percent:
                 max_percent = percent
-                near_goal = {"name": j.name, "percent": round(percent, 1)}
+                near_goal = {
+                    "name": j.name, 
+                    "percent": round(percent, 1),
+                    "balance": float(j.balance)
+                }
 
     biggest_jar = max(jars, key=lambda j: j.balance) if jars else None
 
-    # 2. Dữ liệu Budget
+    # ==========================================
+    # 2. XỬ LÝ DỮ LIỆU NGÂN SÁCH (BUDGET)
+    # ==========================================
     current_month = datetime.now().month
     current_year = datetime.now().year
     
-    total_spent_query = db.query(func.sum(models.Budget.spent_amount)).filter(
+    budgets = db.query(models.Budget).filter(
         models.Budget.user_id == uid,
         func.extract('month', models.Budget.start_date) == current_month,
         func.extract('year', models.Budget.start_date) == current_year
-    ).scalar()
+    ).all()
 
+    total_spent = sum(b.spent_amount for b in budgets)
+    total_limit = sum(b.limit_amount for b in budgets)
+    
+    near_exceed = None
+    max_budget_percent = -1
+    highest_spent_cat = None
+    max_spent = -1
+
+    for b in budgets:
+        if b.spent_amount > max_spent:
+            max_spent = b.spent_amount
+            highest_spent_cat = b.category
+            
+        if b.limit_amount > 0:
+            percent = float((b.spent_amount / b.limit_amount) * 100)
+            if percent > max_budget_percent and percent < 100: 
+                max_budget_percent = percent
+                near_exceed = {"category": b.category, "percent": round(percent, 1)}
+
+    # ==========================================
+    # 3. TRẢ VỀ CHO FRONTEND
+    # ==========================================
     return {
+        # Data của Hũ
         "total_balance": float(total_balance),
-        "total_spent": float(total_spent_query or 0.0),
         "active_jars_count": len(jars),
-        "near_goal": near_goal,  # Dữ liệu Frontend cần
-        "biggest_jar": {"name": biggest_jar.name, "balance": float(biggest_jar.balance)} if biggest_jar else None
+        "near_goal": near_goal,
+        "biggest_jar": {"name": biggest_jar.name, "balance": float(biggest_jar.balance)} if biggest_jar else None,
+        
+        # Data của Ngân sách
+        "total_spent": float(total_spent),
+        "total_limit": float(total_limit),
+        "highest_spent_category": {"category": highest_spent_cat, "amount": float(max_spent)} if highest_spent_cat and max_spent > 0 else None,
+        "near_exceed_budget": near_exceed
     }
