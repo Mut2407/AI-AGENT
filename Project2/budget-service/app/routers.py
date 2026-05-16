@@ -122,7 +122,7 @@ def transfer_jar(payload: TransferPayload, db: Session = Depends(get_db), curren
         free_balance = float(total_wallet) - float(total_in_jars)
 
         if float(amount) > free_balance:
-            raise HTTPException(status_code=400, detail=f"Không đủ tiền rảnh rỗi! Bạn chỉ còn tối đa {free_balance:,.0f}đ để nạp.")
+            raise HTTPException(status_code=400, detail=f"Không đủ tiền rảnh rỗi! Bạn chỉ còn tối đa {free_balance} để nạp.")
 
         jar = db.query(models.Jar).filter(models.Jar.id == payload.to_id, models.Jar.user_id == uid).first()
         if not jar: raise HTTPException(status_code=404, detail="Không tìm thấy hũ")
