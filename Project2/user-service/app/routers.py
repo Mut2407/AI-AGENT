@@ -179,12 +179,7 @@ def update_internal_profile(request: Request, data: dict, db: Session = Depends(
         return {"message": "Cập nhật hồ sơ AI thành công"}
     raise HTTPException(status_code=404, detail="Không tìm thấy UserConfig")
 
-@router.get("/internal/by-email", response_model=schemas.UserResponse) # Đảm bảo dùng đúng Schema có username
-def get_user_by_email(email: str, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Not found")
-    return user
+
 
 @router.get("/internal/by-email")
 def get_user_by_email(email: str, db: Session = Depends(get_db)):
