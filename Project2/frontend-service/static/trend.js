@@ -1,5 +1,3 @@
-
-
 window.exchangeRatesToVND = window.exchangeRatesToVND || {
     vnd: 1, usd: 25400, eur: 27500, gbp: 32000, jpy: 165,
     cny: 3500, krw: 18.5, inr: 305, rub: 275, brl: 4900,
@@ -16,7 +14,6 @@ var currentMetric = 'expense';
 var currentAnchor = new Date(); 
 var selectedBarIndex = null;
 var compareAnchorIndex = null; 
-var userCurrency = { code: 'VND', locale: 'vi-VN', rate: 1.0 };
 
 let initialCategories = [];
 let categoryColors = {};
@@ -34,7 +31,8 @@ function formatScaledTick(value, divisor) {
     const v = Number(value) / (divisor || 1);
     const abs = Math.abs(v);
     const digits = abs >= 10 ? 0 : abs >= 1 ? 1 : 2;
-    return v.toLocaleString(userCurrency.locale, { maximumFractionDigits: digits });
+    // Dùng Intl cơ bản để format theo ngôn ngữ máy, loại bỏ đuôi tiền tệ cho gọn trục Y
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(v);
 }
 
 function fmtDate(dateObj) {
@@ -52,38 +50,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadCurrencyConfig() {
     try {
-        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-        
-        // 🚀 Đã sửa lỗi cú pháp ở dòng này!
-        const res = await fetch('/api/config', { 
-            headers: { 'Authorization': `Bearer ${token}` } 
-        });
-        
-        if (res.ok) {
-            const config = await res.json();
-            userCurrency.code = (config.currency || 'VND').toLowerCase();
+        let attempts = 0;
+        while (!window.userSettings && attempts < 20) {
+            await new Promise(r => setTimeout(r, 100)); 
+            attempts++;
+        }
+
+        let config = window.userSettings;
+
+        if (!config) {
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+            // 🚀 BÍ KÍP: Đã sửa lại đúng đường dẫn API
+            const res = await fetch('/api/users/config', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) config = await res.json();
+        }
+
+        if (config) {
+            // 🚀 BÍ KÍP: Gán thẳng vào biến chung của hệ thống (functions.js đang dùng)
+            window.currentCurrency = (config.currency || 'VND').toLowerCase();
             
-            const localeMap = { 'vnd': 'vi-VN', 'usd': 'en-US', 'eur': 'de-DE', 'jpy': 'ja-JP' };
-            userCurrency.locale = localeMap[userCurrency.code] || 'en-US';
-
-            const rateToVnd = window.exchangeRatesToVND[userCurrency.code] || 1;
-            userCurrency.rate = 1 / rateToVnd;
-
             let expenseCategories = config.expenseCategories || config.categories || [];
             let incomeCategories = config.incomeCategories || ["Lương", "Thưởng", "Đầu tư", "Khác"];
             initialCategories = [...expenseCategories, ...incomeCategories];
         } else {
-            console.warn("Lỗi 401: Sai token.");
+            console.warn("Lỗi 401: Không thể tải cấu hình người dùng.");
         }
     } catch (e) { 
-        console.warn("Lỗi tải cấu hình, dùng mặc định VND", e);
-        userCurrency.rate = 1.0; 
+        console.warn("Lỗi đồng bộ tiền tệ, dùng mặc định VND", e);
+        window.currentCurrency = 'vnd';
     }
 }
 
 async function fetchTransactionsForTrends() {
     try {
-        // Đảm bảo load cấu hình xong xuôi mới đi lấy giao dịch
         await loadCurrencyConfig(); 
 
         const token = localStorage.getItem('token') || localStorage.getItem('access_token');
@@ -92,11 +91,10 @@ async function fetchTransactionsForTrends() {
         if (response.ok) {
             const rawTxns = await response.json();
             
-            // 🚀 Lúc này userCurrency.rate chắc chắn đã là 1/25400 nếu là USD
+            // 🚀 BÍ KÍP: Xóa việc tính toán tỷ giá ở đây. Trả nguyên số gốc để formatCurrency tự lo.
             allTrendTransactions = rawTxns.map(t => {
                 const rawAmount = parseFloat(t.amount) || 0;
-                const convertedAmount = rawAmount * userCurrency.rate;
-                return { ...t, amount: convertedAmount, category: t.category || 'Khác' };
+                return { ...t, amount: rawAmount, category: t.category || 'Khác' };
             });
 
             const savedColors = JSON.parse(localStorage.getItem('customCategoryColors') || '{}');
@@ -368,8 +366,12 @@ function updateChartFromSeries(buckets, targetIdx, isCompareEnabled, period) {
     const fadedColorFull = currentMetric === 'expense' ? 'rgba(252, 165, 165, 0.3)' : currentMetric === 'income' ? 'rgba(134, 239, 172, 0.3)' : hexToRgba(themeAccent, 0.15);
 
     let labels = buckets.map(b => b.label);
-    let fullData = buckets.map(b => b.sumFull);
-    let cutoffData = buckets.map(b => b.sumCutoff);
+    
+    // 🚀 BÍ KÍP: Phải chia tỷ giá thủ công cho dữ liệu vẽ lên biểu đồ
+    const rateToDivide = (typeof exchangeRatesToVND !== 'undefined' ? exchangeRatesToVND[window.currentCurrency] : 1) || 1;
+    
+    let fullData = buckets.map(b => b.sumFull / rateToDivide);
+    let cutoffData = buckets.map(b => b.sumCutoff / rateToDivide);
 
     const datasets = [{
         label: 'Cả kỳ',
@@ -617,6 +619,7 @@ function updatePeriodLabel(period, anchor) {
     const el = document.getElementById('currentPeriodLabel'); if (!el) return;
     const a = new Date(anchor || new Date());
     let label = '';
+    const userLocale = typeof window.currencyBehaviors !== 'undefined' ? (window.currentCurrency === 'vnd' ? 'vi-VN' : 'en-US') : 'vi-VN';
 
     if (period === 'week') {
         const day = a.getDay();
@@ -625,11 +628,11 @@ function updatePeriodLabel(period, anchor) {
         const end = new Date(start); end.setDate(end.getDate() + 6);
         const startDay = start.getDate();
         const endDay = end.getDate();
-        const startMonth = start.toLocaleString(userCurrency.locale, { month: 'short' });
-        const endMonth = end.toLocaleString(userCurrency.locale, { month: 'short' });
+        const startMonth = start.toLocaleString(userLocale, { month: 'short' });
+        const endMonth = end.toLocaleString(userLocale, { month: 'short' });
         label = startMonth === endMonth ? `${startDay} - ${endDay} ${startMonth}` : `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
     } else if (period === 'month') {
-        label = `${a.toLocaleString(userCurrency.locale, { month: 'long', year: 'numeric' })}`;
+        label = `${a.toLocaleString(userLocale, { month: 'long', year: 'numeric' })}`;
     } else {
         label = `${a.getFullYear()}`;
     }
@@ -766,10 +769,11 @@ function renderTopCategories(curTxns, prevTxns, period, titleSuffix, useCutoffFo
     }).join('');
 }
 
-// Trả lại hàm format ban đầu
 function formatCurrencySafe(amount) {
-    return new Intl.NumberFormat(userCurrency.locale, { 
-        style: 'currency', 
-        currency: userCurrency.code.toUpperCase() 
-    }).format(amount);
+    // 🚀 BÍ KÍP: Gọi trực tiếp hàm format chung từ functions.js
+    if (typeof formatCurrency === 'function') {
+        return formatCurrency(amount);
+    }
+    // Backup phòng hờ nếu functions.js chưa kịp load
+    return amount.toLocaleString() + ' ₫';
 }
