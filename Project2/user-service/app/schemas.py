@@ -21,7 +21,7 @@ class UserResponse(BaseModel):
     email: str | None = None     
     gender: str | None = None    
     dob: date | None = None
-    
+    is_email_sync_enabled: bool = False
     model_config = ConfigDict(from_attributes=True) 
 
 class Token(BaseModel):
