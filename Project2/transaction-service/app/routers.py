@@ -510,6 +510,15 @@ def receive_n8n_receipt(
             expense_name = ai_data.get("name", "Auto Receipt")
             expense_amount = float(ai_data.get("amount", 0))
             expense_category = ai_data.get("category", "Khác")
+            
+            # 🚀 ĐÃ SỬA: Lấy ngày từ AI trả về, nếu lỗi thì mới dùng ngày hiện tại
+            ai_date_str = ai_data.get("date")
+            try:
+                # Ép kiểu chuỗi YYYY-MM-DD từ AI thành đối tượng datetime
+                from datetime import datetime
+                expense_date = datetime.strptime(ai_date_str[:10], "%Y-%m-%d") if ai_date_str else datetime.now()
+            except:
+                expense_date = datetime.now()
         else:
             raise Exception("AI Service trả về lỗi")
     except Exception as e:
@@ -524,7 +533,7 @@ def receive_n8n_receipt(
         name=expense_name[:255],
         category=expense_category,
         amount=expense_amount,
-        date=datetime.now(),
+        date=expense_date,  # 🚀 ĐÃ SỬA: Thay datetime.now() bằng expense_date
         tags=["Auto-Gmail"],
         user_id=user_id_to_save 
     )
