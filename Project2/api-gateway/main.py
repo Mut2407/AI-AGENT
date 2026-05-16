@@ -9,7 +9,7 @@ app = FastAPI(title="ExpenseOwl API Gateway")
 # Cấu hình CORS để cho phép Frontend (cổng 3001) gọi API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3001", "http://127.0.0.1:3001"], # Phải khớp với URL web của em
+    allow_origins=["*"], # Phải khớp với URL web của em
     allow_credentials=True,
     allow_methods=["*"], # Cho phép mọi method GET, POST, PUT, DELETE
     allow_headers=["*"], # Cho phép gửi kèm token xác thực

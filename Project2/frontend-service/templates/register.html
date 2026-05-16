@@ -122,7 +122,7 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...'; btn.disabled = true;
 
             try {
-                const res = await fetch('http://localhost:8000/api/auth/register', {
+                const res = await fetch('http://20.255.59.73:8000/api/auth/register', {
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
                 });
                 const data = await res.json();

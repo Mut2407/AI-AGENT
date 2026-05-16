@@ -8,7 +8,7 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY", "chuoi_bi_mat_cua_ban_123")
 ALGORITHM = "HS256"
 
 # Chỉ đường cho file biết cổng đăng nhập ở đâu
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8000/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://20.255.59.73:8000/api/auth/login")
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
