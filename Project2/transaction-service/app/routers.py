@@ -21,6 +21,13 @@ import kafka_pro
 # Giả định hàm get_current_user giờ đây chỉ giải mã JWT để lấy user_id 
 # (Không query Database để lấy cả bảng User nữa vì bảng User nằm ở service khác)
 from auth import get_current_user 
+from pydantic import BaseModel
+
+class N8nWebhookPayload(BaseModel):
+    source: str
+    sender: str
+    receiver: str
+    raw_content: str
 
 # ==========================================
 # HELPER FUNCTIONS: JAR + BUDGET
@@ -443,8 +450,8 @@ def delete_recurring_transaction(
 # ==========================================
 @router.post("/webhooks/n8n-receipt", tags=["Webhooks"])
 def receive_n8n_receipt(
-    payload: dict, 
-    x_api_key: str = Header(None), # 🛡️ Hứng thẻ API Key từ n8n gửi lên
+    payload: N8nWebhookPayload,  # 🚀 ĐỔI SANG DÙNG CLASS NÀY THAY VÌ dict
+    x_api_key: str = Header(None),
     db: Session = Depends(get_db)
 ):
     # 1. KIỂM TRA BẢO MẬT
@@ -452,19 +459,19 @@ def receive_n8n_receipt(
         raise HTTPException(status_code=401, detail="Sai API Key! Từ chối truy cập.")
 
     # 2. XÁC ĐỊNH NGƯỜI DÙNG TỪ EMAIL
-    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', payload.get("receiver", ""))
+    # Đổi cú pháp từ payload.get("receiver") thành payload.receiver
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', payload.receiver) 
     extracted_email = email_match.group(0).lower() if email_match else ""
 
     user_id_to_save = get_user_id_by_email(extracted_email)
     if not user_id_to_save:
         return {"status": "ignored", "message": f"Email {extracted_email} không có trong hệ thống!"}
 
-    # 3. GỌI AI SERVICE ĐỂ BÓC TÁCH NỘI DUNG THÔ (raw_content)
-    raw_text = payload.get("raw_content", "")
-    AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://ai-service:8000") # Sửa lại đúng tên service AI của em
+    # 3. GỌI AI SERVICE ĐỂ BÓC TÁCH NỘI DUNG THÔ
+    raw_text = payload.raw_content  # Đổi cú pháp ở đây nữa
+    AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://ai-service:8000")
     
     try:
-        # Giả định AI Service của em có 1 API tên là /api/ai/extract để đọc text
         ai_response = requests.post(f"{AI_SERVICE_URL}/api/ai/extract", json={"text": raw_text})
         if ai_response.status_code == 200:
             ai_data = ai_response.json()
@@ -475,7 +482,6 @@ def receive_n8n_receipt(
             raise Exception("AI Service trả về lỗi")
     except Exception as e:
         print("Lỗi khi gọi AI:", e)
-        # Nếu AI sập, vẫn lưu lại với thông tin mặc định để user tự sửa sau
         expense_name = "Biên lai chưa phân loại"
         expense_amount = 0.0
         expense_category = "Khác"
@@ -492,9 +498,6 @@ def receive_n8n_receipt(
     )
     db.add(new_expense)
     db.commit()
-
-    # 🚀 Bắn Kafka event thông báo có giao dịch mới để các service khác biết
-    # kafka_pro.send_transaction_event("TRANSACTION_CREATED", {...})
 
     return {"status": "success", "message": "Biên lai đã được tự động lưu!"}
 
