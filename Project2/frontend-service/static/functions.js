@@ -189,7 +189,7 @@ window.fetch = async (...args) => {
 
     // 1. Nếu đây là một lệnh gọi API, hãy bẻ lái nó sang cổng 8000 của Gateway
     if (typeof resource === 'string' && resource.startsWith('/api/')) {
-        resource = 'http://localhost:8000' + resource;
+        resource = 'http://172.207.48.96:8000' + resource;
         args[0] = resource; // Cập nhật lại đường dẫn mới
 
         // 2. Tự động thêm Token (chỉ bỏ qua các route liên quan đến xác thực auth)
