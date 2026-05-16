@@ -28,22 +28,21 @@ class N8nWebhookPayload(BaseModel):
     sender: str
     receiver: str
     raw_content: str
+# # ==========================================
+# # HELPER FUNCTIONS: JAR + BUDGET
+# # ==========================================
 
-# ==========================================
-# HELPER FUNCTIONS: JAR + BUDGET
-# ==========================================
+# def distribute_to_jars(db: Session, user_id: str, income_amount: float):
+#     """Phân tiền thu nhập vào 6 hũ theo tỷ lệ phần trăm"""
+#     user_jars = db.query(models.Jar).filter(models.Jar.user_id == user_id).order_by(models.Jar.id).all()
+#     if not user_jars:
+#         return
 
-def distribute_to_jars(db: Session, user_id: str, income_amount: float):
-    """Phân tiền thu nhập vào 6 hũ theo tỷ lệ phần trăm"""
-    user_jars = db.query(models.Jar).filter(models.Jar.user_id == user_id).order_by(models.Jar.id).all()
-    if not user_jars:
-        return
-
-    for jar in user_jars:
-        if jar.percent > 0:
-            allocated_money = Decimal(str(income_amount)) * (jar.percent / Decimal('100'))
-            jar.balance += allocated_money
-    db.commit()
+#     for jar in user_jars:
+#         if jar.percent > 0:
+#             allocated_money = Decimal(str(income_amount)) * (jar.percent / Decimal('100'))
+#             jar.balance += allocated_money
+#     db.commit()
 
 
 def update_budget_spent(db: Session, user_id: str, category: str, spent_amount: float):
@@ -52,6 +51,10 @@ def update_budget_spent(db: Session, user_id: str, category: str, spent_amount: 
     pass
 
 
+# def update_budget_spent(db: Session, user_id: str, category: str, spent_amount: float):
+#     """Cập nhật số tiền đã chi tiêu cho từng budget theo category"""
+#     # Tạm thời chỉ tracking, có thể mở rộng để kiểm tra quá budget
+#     pass
 router = APIRouter(prefix="/api/expenses", tags=["Expenses"])
 recurring_router = APIRouter(prefix="/api/recurring-expenses", tags=["Recurring Expenses"])
 
@@ -95,25 +98,25 @@ def create_transaction(
     )
     db.add(db_transaction)
     
-    # 🚀 JAR + BUDGET LOGIC từ monolith
-    if transaction.amount > 0:  # Income
-        distribute_to_jars(db, current_user["id"], float(transaction.amount))
-    elif transaction.amount < 0:  # Expense
-        if transaction.jar_id:
-            jar = db.query(models.Jar).filter(
-                models.Jar.id == transaction.jar_id,
-                models.Jar.user_id == current_user["id"]
-            ).first()
-            if jar:
-                if jar.balance < abs(transaction.amount):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Quỹ '{jar.name}' không đủ tiền! (Hiện chỉ còn {jar.balance:,.0f})"
-                    )
-                jar.balance -= Decimal(str(abs(transaction.amount)))
-                db.add(jar)
+    # # 🚀 JAR + BUDGET LOGIC từ monolith
+    # if transaction.amount > 0:  # Income
+    #     distribute_to_jars(db, current_user["id"], float(transaction.amount))
+    # elif transaction.amount < 0:  # Expense
+    #     if transaction.jar_id:
+    #         jar = db.query(models.Jar).filter(
+    #             models.Jar.id == transaction.jar_id,
+    #             models.Jar.user_id == current_user["id"]
+    #         ).first()
+    #         if jar:
+    #             if jar.balance < abs(transaction.amount):
+    #                 raise HTTPException(
+    #                     status_code=400,
+    #                     detail=f"Quỹ '{jar.name}' không đủ tiền! (Hiện chỉ còn {jar.balance:,.0f})"
+    #                 )
+    #             jar.balance -= Decimal(str(abs(transaction.amount)))
+    #             db.add(jar)
         
-        update_budget_spent(db, current_user["id"], transaction.category, abs(transaction.amount))
+    #     update_budget_spent(db, current_user["id"], transaction.category, abs(transaction.amount))
     
     db.commit()
     db.refresh(db_transaction)
@@ -125,7 +128,7 @@ def create_transaction(
          "jar_id": db_transaction.jar_id,
          "amount": float(db_transaction.amount),
          "category": db_transaction.category,
-         "transaction_date": db_transaction.date.isoformat()
+         "transaction_date": db_transaction.date.isoformat() if db_transaction.date else datetime.now().isoformat()
     })
 
     return db_transaction
@@ -146,7 +149,9 @@ def update_transaction(
         raise HTTPException(status_code=404, detail="Không tìm thấy giao dịch")
 
     # Lưu lại số tiền cũ để gửi Kafka bù trừ (nếu cần)
-    old_amount = db_txn.amount
+    old_amount = float(db_txn.amount)
+    old_category = db_txn.category
+    old_jar_id = db_txn.jar_id
 
     db_txn.name = transaction_update.name
     db_txn.amount = transaction_update.amount
@@ -160,7 +165,17 @@ def update_transaction(
     db.refresh(db_txn)
 
     # 🚀 Bắn Kafka event thông báo cập nhật
-    # kafka_pro.send_transaction_event("TRANSACTION_UPDATED", {...})
+    kafka_pro.send_transaction_event("TRANSACTION_UPDATED", {
+        "id": db_txn.id,
+        "user_id": db_txn.user_id,
+        "jar_id": db_txn.jar_id,
+        "amount": float(db_txn.amount),
+        "category": db_txn.category,
+        "transaction_date": db_txn.date.isoformat() if db_txn.date else datetime.now().isoformat(),
+        "old_amount": old_amount,
+        "old_category": old_category,
+        "old_jar_id": old_jar_id
+    })
 
     return db_txn
 
@@ -183,16 +198,16 @@ def delete_transaction(
     jar_id = db_txn.jar_id
     txn_date = db_txn.date.isoformat() if db_txn.date else datetime.now().isoformat()
 
-    # 🚀 JAR REFUND LOGIC
-    if db_txn.amount < 0 and jar_id:
-        # Hoàn tiền vào hũ khi xóa giao dịch chi tiêu
-        jar = db.query(models.Jar).filter(
-            models.Jar.id == jar_id,
-            models.Jar.user_id == current_user["id"]
-        ).first()
-        if jar:
-            jar.balance += Decimal(str(abs(amount_to_refund)))
-            db.add(jar)
+    # # 🚀 JAR REFUND LOGIC
+    # if db_txn.amount < 0 and jar_id:
+    #     # Hoàn tiền vào hũ khi xóa giao dịch chi tiêu
+    #     jar = db.query(models.Jar).filter(
+    #         models.Jar.id == jar_id,
+    #         models.Jar.user_id == current_user["id"]
+    #     ).first()
+    #     if jar:
+    #         jar.balance += Decimal(str(abs(amount_to_refund)))
+    #         db.add(jar)
 
     db.delete(db_txn)
     db.commit()
@@ -356,7 +371,11 @@ def update_internal_transaction(transaction_id: str, request: Request, data: dic
                 "user_id": db_txn.user_id,
                 "jar_id": db_txn.jar_id,
                 "amount": float(db_txn.amount),
-                "category": db_txn.category
+                "category": db_txn.category,
+                "transaction_date": db_txn.date.isoformat() if db_txn.date else datetime.now().isoformat(),
+                "old_amount": old_amount,
+                "old_category": old_category,
+                "old_jar_id": old_jar_id
             })
         except Exception as e:
             print("Lỗi Kafka:", e)
@@ -515,85 +534,85 @@ def receive_n8n_receipt(
     return {"status": "success", "message": "Biên lai đã được tự động lưu!"}
 
 
-# ==========================================
-# JAR MANAGEMENT
-# ==========================================
-jar_router = APIRouter(prefix="/api/jars", tags=["Jars"])
+# # ==========================================
+# # JAR MANAGEMENT
+# # ==========================================
+# jar_router = APIRouter(prefix="/api/jars", tags=["Jars"])
 
-@jar_router.get("/", response_model=List[schemas.JarResponse])
-def get_jars(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    """Get all jars for current user"""
-    jars = db.query(models.Jar).filter(
-        models.Jar.user_id == current_user["id"]
-    ).order_by(models.Jar.id).all()
+# @jar_router.get("/", response_model=List[schemas.JarResponse])
+# def get_jars(
+#     db: Session = Depends(get_db),
+#     current_user: dict = Depends(get_current_user),
+# ):
+#     """Get all jars for current user"""
+#     jars = db.query(models.Jar).filter(
+#         models.Jar.user_id == current_user["id"]
+#     ).order_by(models.Jar.id).all()
     
-    if not jars:
-        # Auto-create default jars if not exists
-        default_jars = [
-            models.Jar(name="Tiền Tiêu Vặt", percent=55, user_id=current_user["id"]),
-            models.Jar(name="Tiền Đầu Tư", percent=10, user_id=current_user["id"]),
-            models.Jar(name="Tiền Tiết Kiệm", percent=10, user_id=current_user["id"]),
-            models.Jar(name="Tiền Cho Tặng", percent=5, user_id=current_user["id"]),
-            models.Jar(name="Tiền Giáo Dục", percent=10, user_id=current_user["id"]),
-            models.Jar(name="Tiền Vui Chơi", percent=10, user_id=current_user["id"]),
-        ]
-        db.add_all(default_jars)
-        db.commit()
-        jars = default_jars
+#     if not jars:
+#         # Auto-create default jars if not exists
+#         default_jars = [
+#             models.Jar(name="Tiền Tiêu Vặt", percent=55, user_id=current_user["id"]),
+#             models.Jar(name="Tiền Đầu Tư", percent=10, user_id=current_user["id"]),
+#             models.Jar(name="Tiền Tiết Kiệm", percent=10, user_id=current_user["id"]),
+#             models.Jar(name="Tiền Cho Tặng", percent=5, user_id=current_user["id"]),
+#             models.Jar(name="Tiền Giáo Dục", percent=10, user_id=current_user["id"]),
+#             models.Jar(name="Tiền Vui Chơi", percent=10, user_id=current_user["id"]),
+#         ]
+#         db.add_all(default_jars)
+#         db.commit()
+#         jars = default_jars
     
-    return jars
+#     return jars
 
-@jar_router.post("/", response_model=schemas.JarResponse)
-def create_jar(
-    jar: schemas.JarCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    """Create a new jar"""
-    new_jar = models.Jar(
-        name=jar.name,
-        percent=jar.percent,
-        balance=0.0,
-        goal_amount=jar.goal_amount,
-        color=jar.color,
-        icon=jar.icon,
-        user_id=current_user["id"],
-    )
-    db.add(new_jar)
-    db.commit()
-    db.refresh(new_jar)
-    return new_jar
+# @jar_router.post("/", response_model=schemas.JarResponse)
+# def create_jar(
+#     jar: schemas.JarCreate,
+#     db: Session = Depends(get_db),
+#     current_user: dict = Depends(get_current_user),
+# ):
+#     """Create a new jar"""
+#     new_jar = models.Jar(
+#         name=jar.name,
+#         percent=jar.percent,
+#         balance=0.0,
+#         goal_amount=jar.goal_amount,
+#         color=jar.color,
+#         icon=jar.icon,
+#         user_id=current_user["id"],
+#     )
+#     db.add(new_jar)
+#     db.commit()
+#     db.refresh(new_jar)
+#     return new_jar
 
-@jar_router.put("/{jar_id}", response_model=schemas.JarResponse)
-def update_jar(
-    jar_id: int,
-    jar_update: schemas.JarUpdate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    """Update jar details"""
-    db_jar = db.query(models.Jar).filter(
-        models.Jar.id == jar_id,
-        models.Jar.user_id == current_user["id"]
-    ).first()
+# @jar_router.put("/{jar_id}", response_model=schemas.JarResponse)
+# def update_jar(
+#     jar_id: int,
+#     jar_update: schemas.JarUpdate,
+#     db: Session = Depends(get_db),
+#     current_user: dict = Depends(get_current_user),
+# ):
+#     """Update jar details"""
+#     db_jar = db.query(models.Jar).filter(
+#         models.Jar.id == jar_id,
+#         models.Jar.user_id == current_user["id"]
+#     ).first()
     
-    if not db_jar:
-        raise HTTPException(status_code=404, detail="Không tìm thấy hũ")
+#     if not db_jar:
+#         raise HTTPException(status_code=404, detail="Không tìm thấy hũ")
     
-    if jar_update.name:
-        db_jar.name = jar_update.name
-    if jar_update.percent is not None:
-        db_jar.percent = jar_update.percent
-    if jar_update.goal_amount is not None:
-        db_jar.goal_amount = jar_update.goal_amount
-    if jar_update.color:
-        db_jar.color = jar_update.color
-    if jar_update.icon:
-        db_jar.icon = jar_update.icon
+#     if jar_update.name:
+#         db_jar.name = jar_update.name
+#     if jar_update.percent is not None:
+#         db_jar.percent = jar_update.percent
+#     if jar_update.goal_amount is not None:
+#         db_jar.goal_amount = jar_update.goal_amount
+#     if jar_update.color:
+#         db_jar.color = jar_update.color
+#     if jar_update.icon:
+#         db_jar.icon = jar_update.icon
     
-    db.commit()
-    db.refresh(db_jar)
-    return db_jar
+#     db.commit()
+#     db.refresh(db_jar)
+#     return db_jar

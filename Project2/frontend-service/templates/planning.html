@@ -798,7 +798,7 @@
             }
 
             if (rawAmount === "" || isNaN(limit) || limit <= 0) {
-                showToast("Dữ liệu không hợp lệ! Hạn mức phải là một con số lớn hơn 0.", "error");
+                showToast("Dữ liệu hạn mức không hợp lệ! Vui lòng nhập lại hạn mức.", "error");
                 return;
             }
 
@@ -845,7 +845,7 @@
             const token = localStorage.getItem('token') || localStorage.getItem('access_token');
 
             try {
-                await fetch('/api/categories/edit', {
+                await fetch('/api/users/categories/edit', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -910,7 +910,7 @@
 
             try {
                 // 2. Cập nhật danh mục sang User Service (Cái cũ được giữ nguyên, chỉ thêm cái mới)
-                await fetch('/api/categories/edit', {
+                await fetch('/api/users/categories/edit', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1092,7 +1092,7 @@
 
             // 3. Gọi API ngầm để lấy cấu hình thật
             try {
-                const res = await fetch("/api/config", { headers: { 'Authorization': `Bearer ${token}` } });
+                const res = await fetch("/api/users/config", { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.ok) {
                     const config = await res.json();
                     window.categoriesList = Array.isArray(config.expenseCategories) ? config.expenseCategories : window.categoriesList;

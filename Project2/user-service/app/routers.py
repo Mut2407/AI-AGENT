@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 import models, schemas, auth
 from database import get_db
+import json
 
 router = APIRouter()
 
@@ -75,6 +76,11 @@ def get_user_config(db: Session = Depends(get_db), current_user: models.User = D
         is_newly_created = True 
     
     cats = config.categories if config.categories else {}
+    if isinstance(cats, str):
+        try:
+            cats = json.loads(cats.replace("'", '"'))
+        except Exception:
+            cats = {}
     exp_cats = cats.get("expenseCategories") if isinstance(cats, dict) else None
     inc_cats = cats.get("incomeCategories") if isinstance(cats, dict) else None
     

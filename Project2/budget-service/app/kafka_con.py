@@ -79,6 +79,44 @@ def start_kafka_consumer():
                         user_jars = db.query(models.Jar).filter(models.Jar.user_id == user_id).all()
                         for jar in user_jars:
                             if jar.percent > 0: jar.balance += abs(amount) * (jar.percent / Decimal('100'))
+                
+                elif event_type == "TRANSACTION_UPDATED":
+                    old_amount = float(data.get("old_amount", 0))
+                    old_category = data.get("old_category", category)
+                    old_jar_id = data.get("old_jar_id")
+
+                    if old_amount < 0: # Nếu giao dịch cũ là Chi tiêu
+                        old_budget = db.query(models.Budget).filter(
+                            models.Budget.user_id == user_id, 
+                            func.lower(models.Budget.category) == str(old_category).lower(),
+                            models.Budget.start_date <= trans_date, 
+                            models.Budget.end_date >= trans_date
+                        ).first()
+                        if old_budget:
+                            old_budget.spent_amount -= abs(old_amount)
+                            if old_budget.spent_amount < 0: old_budget.spent_amount = 0
+                            
+                        if old_jar_id:
+                            old_jar = db.query(models.Jar).filter(models.Jar.id == old_jar_id).first()
+                            if old_jar: old_jar.balance += abs(old_amount)
+                    elif old_amount > 0: # Nếu giao dịch cũ là Thu nhập
+                        user_jars = db.query(models.Jar).filter(models.Jar.user_id == user_id).all()
+                        for jar in user_jars:
+                            if jar.percent > 0:
+                                jar.balance -= abs(old_amount) * (jar.percent / Decimal('100'))
+                                if jar.balance < 0: jar.balance = 0
+
+                    if is_expense: # Nếu giao dịch mới là Chi tiêu
+                        if budget: 
+                            budget.spent_amount += abs(amount)
+                        if data.get("jar_id"):
+                            new_jar = db.query(models.Jar).filter(models.Jar.id == data["jar_id"]).first()
+                            if new_jar: new_jar.balance -= abs(amount)
+                    elif amount > 0: # Nếu giao dịch mới là Thu nhập
+                        user_jars = db.query(models.Jar).filter(models.Jar.user_id == user_id).all()
+                        for jar in user_jars:
+                            if jar.percent > 0:
+                                jar.balance += abs(amount) * (jar.percent / Decimal('100'))
 
                 elif event_type == "TRANSACTION_DELETED":
                     if is_expense:
