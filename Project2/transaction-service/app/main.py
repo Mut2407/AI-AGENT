@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import router, recurring_router, jar_router
+from routers import router, recurring_router
 
 # Thêm 2 dòng import này vào
 from database import engine, Base
@@ -14,4 +14,3 @@ app = FastAPI(title="Transaction Service")
 # Bắt đầu mở cửa nối các phòng vào sảnh chính
 app.include_router(router)
 app.include_router(recurring_router)
-app.include_router(jar_router)

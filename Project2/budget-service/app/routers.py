@@ -7,6 +7,8 @@ from database import get_db
 from pydantic import BaseModel
 import requests
 import os
+from urllib import response
+
 # Giả định auth.py chứa hàm giải mã JWT thành dictionary current_user
 from auth import get_current_user 
 
@@ -92,7 +94,6 @@ def get_total_wallet_balance(token):
         
         if response.status_code != 200:
             print(f"⚠️ CẢNH BÁO: Gọi txn-service thất bại (Code: {response.status_code}). URL: {url}")
-            # TRẢ VỀ SỐ LỚN ĐỂ TẠM BYPASS LOGIC CHẶN NẠP HŨ NẾU SERVER KIA SẬP
             return 999999999.0  
             
         data = response.json()
@@ -249,7 +250,6 @@ def get_budgets(start_date: str, end_date: str, period_type: str, db: Session = 
         })
     return result
 def calculate_spent_amount(user_id, category, start, end, token):
-
     try:
         TXN_SERVICE_URL = os.getenv(
             "TXN_SERVICE_URL",
@@ -257,25 +257,16 @@ def calculate_spent_amount(user_id, category, start, end, token):
         )
 
         response = requests.get(
-            f"{TXN_SERVICE_URL}/api/expenses/history",
-            headers={
-                "Authorization": f"Bearer {token}"
-            },
-            params={
-                "start_date": start.isoformat(),
-                "end_date": end.isoformat()
-            },
+            f"{TXN_SERVICE_URL}/api/expenses",
+            headers={"Authorization": f"Bearer {token}"},
             timeout=10
         )
 
-        print("STATUS:", response.status_code)
-        print("BODY:", response.text)
-
         if response.status_code != 200:
+            print(f"Lỗi gọi API Transaction: {response.status_code}")
             return 0
 
         data = response.json()
-
         transactions = (
             data if isinstance(data, list)
             else data.get("transactions", [])
@@ -284,17 +275,15 @@ def calculate_spent_amount(user_id, category, start, end, token):
         total = 0
 
         for txn in transactions:
-
             amount = float(txn.get("amount", 0))
-
             txn_category = str(
                 txn.get("category", "")
             ).strip().lower()
 
-            txn_date = datetime.strptime(
-                txn["transaction_date"][:10],
-                "%Y-%m-%d"
-            ).date()
+            date_str = txn.get("date") or txn.get("transaction_date")
+            if not date_str:
+                continue
+            txn_date = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
 
             if (
                 txn_category == category.lower()
@@ -348,24 +337,22 @@ def setup_budgets_bulk(payload: dict = Body(...), db: Session = Depends(get_db),
             cat = str(item.get("category", "")).strip()
             limit = float(item.get("limit_amount") or 0.0)
 
+            if limit < 0:
+                raise HTTPException(status_code=400, detail="Hạn mức không được âm")
             if not cat: continue
 
             existing_list = budget_map.get(cat, [])
 
             if limit == 0:
-                # Nếu Frontend gửi số 0 -> Đòi xóa -> Xóa sạch!
                 for ex in existing_list:
                     db.delete(ex)
                 continue
 
             if existing_list:
-                # Giữ lại cái đầu tiên để bảo toàn số tiền đã tiêu, xóa các bản sao lỗi
                 existing_list[0].limit_amount = limit
                 for ex in existing_list[1:]:
                     db.delete(ex)
             else:
-                # Tạo mới hoàn toàn
-
                 spent_amount = calculate_spent_amount(
                     current_user["id"],
                     cat,
@@ -396,7 +383,7 @@ def delete_budget(category: str, start_date: str, end_date: str, period_type: st
     end = datetime.strptime(end_date[:10], "%Y-%m-%d").date()
     
     budget = db.query(models.Budget).filter(
-        models.Budget.user_id == str(current_user["id"]),
+        models.Budget.user_id == current_user["id"],
         models.Budget.category == category,
         models.Budget.start_date == start,
         models.Budget.end_date == end,
