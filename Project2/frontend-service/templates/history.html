@@ -1001,6 +1001,15 @@
         } catch (error) {
           console.error("Lỗi chí mạng khi khởi tạo:", error);
         }
+        updatePeriodDisplayOverride();
+          await loadJarsForSelect();         
+          if (typeof loadJarsForTransactionForm === "function") await loadJarsForTransactionForm(); 
+          
+          // 🚀 GỌI HÀM BƠM DỮ LIỆU BỘ LỌC Ở ĐÂY LÀ XONG!
+          updateFilterDropdowns();
+          
+          if (typeof updateChartAndLegend === "function") updateChartAndLegend();            
+          if (typeof updateTable === "function") updateTable();
       }
 
         let expenseToDelete = null;
@@ -1170,6 +1179,37 @@
             } else {
                 localStorage.removeItem('token');
                 window.location.href = '/login';
+            }
+        }
+        // 🚀 HÀM MỚI: Bơm dữ liệu vào 2 nút Lọc
+        function updateFilterDropdowns() {
+            // 1. Bơm Danh mục
+            const catFilter = document.getElementById('categoryFilter');
+            if (catFilter) {
+                let catHtml = '<option value="all">📁 Tất cả danh mục</option>';
+                if (expenseCategories.length > 0) {
+                    catHtml += `<optgroup label="🔻 Khoản Chi">${expenseCategories.map(c => `<option value="${c}">${c}</option>`).join('')}</optgroup>`;
+                }
+                if (incomeCategories.length > 0) {
+                    catHtml += `<optgroup label="🍀 Khoản Thu">${incomeCategories.map(c => `<option value="${c}">${c}</option>`).join('')}</optgroup>`;
+                }
+                catFilter.innerHTML = catHtml;
+                // Giữ lại lựa chọn cũ nếu đang lọc
+                if (currentFilterCategory !== 'all') catFilter.value = currentFilterCategory;
+            }
+
+            // 2. Bơm Nhãn (Tags)
+            const tagFilter = document.getElementById('tagFilter');
+            if (tagFilter) {
+                let tagHtml = '<option value="all">🏷️ Tất cả nhãn</option>';
+                // Biến Set allTags thành Array và sắp xếp theo bảng chữ cái
+                const tagsArray = Array.from(allTags).sort();
+                tagsArray.forEach(tag => {
+                    tagHtml += `<option value="${tag}">${escapeHTML(tag)}</option>`;
+                });
+                tagFilter.innerHTML = tagHtml;
+                // Giữ lại lựa chọn cũ nếu đang lọc
+                if (currentFilterTag !== 'all') tagFilter.value = currentFilterTag;
             }
         }
     </script>
