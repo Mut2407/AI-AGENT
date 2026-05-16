@@ -41,9 +41,10 @@ def extract_expense_info(request: ExtractRequest):
         Hãy đọc nội dung hóa đơn/email sau và trích xuất thông tin.
         Trích xuất và trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng sau, KHÔNG GIẢI THÍCH, KHÔNG MARKDOWN:
         {{
-            "name": "Tên cửa hàng, dịch vụ hoặc món đồ (ngắn gọn gọn, ví dụ: FOODY CORP)",
-            "amount": số_tiền_bằng_số_nguyên (chỉ lấy số dương, không chứa dấu phẩy hay chữ VND, ví dụ: 26000),
-            "category": "Phân loại vào 1 trong các nhóm: Ăn uống, Mua sắm, Di chuyển, Hóa đơn, Khác"
+            "name": "Tên cửa hàng, dịch vụ hoặc món đồ (ngắn gọn, ví dụ: FOODY CORP)",
+            "amount": số_tiền_chính_xác_bằng_số (Tuyệt đối KHÔNG quy đổi tỷ giá ngoại tệ, KHÔNG chuyển sang USD. Phải giữ nguyên con số gốc trên hóa đơn. Ví dụ: '26,000 VND' thì trả về đúng số 26000),
+            "category": "Phân loại vào 1 trong các nhóm: Ăn uống, Mua sắm, Di chuyển, Hóa đơn, Khác",
+            "date": "Ngày giao dịch theo định dạng YYYY-MM-DD. (Ví dụ: 2026-05-05). Nếu không tìm thấy ngày thì trả về null."
         }}
         
         Nội dung:
