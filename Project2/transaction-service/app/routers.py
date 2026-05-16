@@ -448,7 +448,20 @@ def delete_recurring_transaction(
 # ==========================================
 # 4. WEBHOOK TỪ n8n
 # ==========================================
+def get_user_id_by_email(email: str):
+    import requests
+    import os
+    # Lưu ý: Cổng 8001 là cổng nội bộ giả định của User Service, em điều chỉnh nếu cần
+    USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8000") 
+    try:
+        res = requests.get(f"{USER_SERVICE_URL}/api/users/internal/by-email?email={email}")
+        if res.status_code == 200:
+            return res.json().get("id")
+    except Exception as e:
+        print("Lỗi khi gọi User Service:", e)
+    return None
 @router.post("/webhooks/n8n-receipt", tags=["Webhooks"])
+
 def receive_n8n_receipt(
     payload: N8nWebhookPayload,  # 🚀 ĐỔI SANG DÙNG CLASS NÀY THAY VÌ dict
     x_api_key: str = Header(None),
