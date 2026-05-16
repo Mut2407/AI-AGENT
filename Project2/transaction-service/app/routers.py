@@ -456,7 +456,7 @@ def get_user_id_by_email(email: str):
     try:
         res = requests.get(f"{USER_SERVICE_URL}/api/users/internal/by-email?email={email}")
         if res.status_code == 200:
-            return res.json().get("id")
+            return res.json().get("username")
     except Exception as e:
         print("Lỗi khi gọi User Service:", e)
     return None
