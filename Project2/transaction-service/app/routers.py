@@ -8,7 +8,8 @@ import io
 import re
 from datetime import datetime
 from decimal import Decimal
-
+import requests
+import os
 
 # Import nội bộ của Transaction Service
 import models, schemas
@@ -20,7 +21,6 @@ import kafka_pro
 # Giả định hàm get_current_user giờ đây chỉ giải mã JWT để lấy user_id 
 # (Không query Database để lấy cả bảng User nữa vì bảng User nằm ở service khác)
 from auth import get_current_user 
-<<<<<<< HEAD
 
 # ==========================================
 # HELPER FUNCTIONS: JAR + BUDGET
@@ -45,9 +45,6 @@ def update_budget_spent(db: Session, user_id: str, category: str, spent_amount: 
     pass
 
 
-=======
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Header, Request
->>>>>>> 00da29cc79cc8d1faeb3e0775448448ede20ba1d
 router = APIRouter(prefix="/api/expenses", tags=["Expenses"])
 recurring_router = APIRouter(prefix="/api/recurring-expenses", tags=["Recurring Expenses"])
 
@@ -444,50 +441,51 @@ def delete_recurring_transaction(
 # ==========================================
 # 4. WEBHOOK TỪ n8n
 # ==========================================
-from pydantic import BaseModel
-
-class N8nWebhookPayload(BaseModel):
-    source: str
-    sender: str
-    receiver: str
-    raw_content: str
-
-# Hàm này sẽ gọi sang User Service để lấy user_id dựa vào email
-def get_user_id_by_email(email: str):
-    import requests
-    import os
-    USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8001")
-    try:
-        # Giả định User Service có API nội bộ để check email
-        res = requests.get(f"{USER_SERVICE_URL}/api/users/internal/by-email?email={email}")
-        if res.status_code == 200:
-            return res.json().get("id")
-    except:
-        pass
-    return None
-
 @router.post("/webhooks/n8n-receipt", tags=["Webhooks"])
 def receive_n8n_receipt(
-    payload: dict, # Dữ liệu n8n gửi qua sau khi đã làm sạch và ép kiểu JSON
+    payload: dict, 
+    x_api_key: str = Header(None), # 🛡️ Hứng thẻ API Key từ n8n gửi lên
     db: Session = Depends(get_db)
 ):
-    # Trong Microservices, n8n NÊN thực hiện gọi AI ở 1 service trung gian hoặc luồng riêng
-    # Đoạn này giả định n8n đã gửi kèm JSON bóc tách sẵn (hoặc em gọi sang AI-Service)
-    
+    # 1. KIỂM TRA BẢO MẬT
+    if x_api_key != "expenseowl-secret-key-12345":
+        raise HTTPException(status_code=401, detail="Sai API Key! Từ chối truy cập.")
+
+    # 2. XÁC ĐỊNH NGƯỜI DÙNG TỪ EMAIL
     email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', payload.get("receiver", ""))
     extracted_email = email_match.group(0).lower() if email_match else ""
 
-    # Lấy User ID từ User Service
     user_id_to_save = get_user_id_by_email(extracted_email)
     if not user_id_to_save:
-        return {"status": "ignored", "message": "Email người nhận không có trong hệ thống!"}
+        return {"status": "ignored", "message": f"Email {extracted_email} không có trong hệ thống!"}
 
-    # Lưu giao dịch
+    # 3. GỌI AI SERVICE ĐỂ BÓC TÁCH NỘI DUNG THÔ (raw_content)
+    raw_text = payload.get("raw_content", "")
+    AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://ai-service:8000") # Sửa lại đúng tên service AI của em
+    
+    try:
+        # Giả định AI Service của em có 1 API tên là /api/ai/extract để đọc text
+        ai_response = requests.post(f"{AI_SERVICE_URL}/api/ai/extract", json={"text": raw_text})
+        if ai_response.status_code == 200:
+            ai_data = ai_response.json()
+            expense_name = ai_data.get("name", "Auto Receipt")
+            expense_amount = float(ai_data.get("amount", 0))
+            expense_category = ai_data.get("category", "Khác")
+        else:
+            raise Exception("AI Service trả về lỗi")
+    except Exception as e:
+        print("Lỗi khi gọi AI:", e)
+        # Nếu AI sập, vẫn lưu lại với thông tin mặc định để user tự sửa sau
+        expense_name = "Biên lai chưa phân loại"
+        expense_amount = 0.0
+        expense_category = "Khác"
+
+    # 4. LƯU GIAO DỊCH VÀO DATABASE
     new_expense = models.Transaction(
         id=str(uuid.uuid4()),
-        name=payload.get("name", "Auto Receipt")[:255],
-        category=payload.get("category", "Khác"),
-        amount=float(payload.get("amount", 0)),
+        name=expense_name[:255],
+        category=expense_category,
+        amount=expense_amount,
         date=datetime.now(),
         tags=["Auto-Gmail"],
         user_id=user_id_to_save 
@@ -495,7 +493,7 @@ def receive_n8n_receipt(
     db.add(new_expense)
     db.commit()
 
-    # 🚀 Bắn Kafka event
+    # 🚀 Bắn Kafka event thông báo có giao dịch mới để các service khác biết
     # kafka_pro.send_transaction_event("TRANSACTION_CREATED", {...})
 
     return {"status": "success", "message": "Biên lai đã được tự động lưu!"}
