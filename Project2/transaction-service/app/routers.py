@@ -77,6 +77,27 @@ def get_transactions(
         .all()
     )
 
+@router.get("/history")
+def get_transactions_history(
+    start_date: str,
+    end_date: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """API dùng để Budget Service lấy lịch sử giao dịch tính tổng tiền"""
+    from sqlalchemy import func
+    
+    start = datetime.strptime(start_date[:10], "%Y-%m-%d").date()
+    end = datetime.strptime(end_date[:10], "%Y-%m-%d").date()
+    
+    transactions = db.query(models.Transaction).filter(
+        models.Transaction.user_id == current_user["id"],
+        func.date(models.Transaction.date) >= start,
+        func.date(models.Transaction.date) <= end
+    ).all()
+    
+    return {"transactions": transactions}
+
 @router.post("/", response_model=schemas.TransactionResponse)
 def create_transaction(
     transaction: schemas.TransactionCreate,
@@ -148,7 +169,6 @@ def update_transaction(
     if not db_txn:
         raise HTTPException(status_code=404, detail="Không tìm thấy giao dịch")
 
-    # Lưu lại số tiền cũ để gửi Kafka bù trừ (nếu cần)
     old_amount = float(db_txn.amount)
     old_category = db_txn.category
     old_jar_id = db_txn.jar_id
@@ -165,17 +185,24 @@ def update_transaction(
     db.refresh(db_txn)
 
     # 🚀 Bắn Kafka event thông báo cập nhật
-    kafka_pro.send_transaction_event("TRANSACTION_UPDATED", {
-        "id": db_txn.id,
-        "user_id": db_txn.user_id,
-        "jar_id": db_txn.jar_id,
-        "amount": float(db_txn.amount),
-        "category": db_txn.category,
-        "transaction_date": db_txn.date.isoformat() if db_txn.date else datetime.now().isoformat(),
-        "old_amount": old_amount,
-        "old_category": old_category,
-        "old_jar_id": old_jar_id
-    })
+    try:
+        kafka_pro.send_transaction_event("TRANSACTION_UPDATED", {
+            "id": db_txn.id,
+            "user_id": db_txn.user_id,
+            "transaction_date": db_txn.date.isoformat() if db_txn.date else None,
+            
+            # Dữ liệu mới để cộng vào
+            "amount": float(db_txn.amount),
+            "category": db_txn.category,
+            "jar_id": db_txn.jar_id,
+            
+            # Dữ liệu cũ để trừ đi (RẤT QUAN TRỌNG)
+            "old_amount": old_amount,
+            "old_category": old_category,
+            "old_jar_id": old_jar_id
+        })
+    except Exception as e:
+        print(f"Lỗi gửi Kafka: {e}")
 
     return db_txn
 

@@ -81,9 +81,9 @@ def start_kafka_consumer():
                             if jar.percent > 0: jar.balance += abs(amount) * (jar.percent / Decimal('100'))
                 
                 elif event_type == "TRANSACTION_UPDATED":
-                    old_amount = float(data.get("old_amount", 0))
+                    old_amount = Decimal(str(data.get("old_amount", amount)))
                     old_category = data.get("old_category", category)
-                    old_jar_id = data.get("old_jar_id")
+                    old_jar_id = data.get("old_jar_id", data.get("jar_id"))
 
                     if old_amount < 0: # Nếu giao dịch cũ là Chi tiêu
                         old_budget = db.query(models.Budget).filter(

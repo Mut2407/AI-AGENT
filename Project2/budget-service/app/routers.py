@@ -257,8 +257,12 @@ def calculate_spent_amount(user_id, category, start, end, token):
         )
 
         response = requests.get(
-            f"{TXN_SERVICE_URL}/api/expenses",
+            f"{TXN_SERVICE_URL}/api/expenses/history",
             headers={"Authorization": f"Bearer {token}"},
+            params={
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat()
+            },
             timeout=10
         )
 
@@ -280,10 +284,14 @@ def calculate_spent_amount(user_id, category, start, end, token):
                 txn.get("category", "")
             ).strip().lower()
 
-            date_str = txn.get("date") or txn.get("transaction_date")
-            if not date_str:
+            raw_date = txn.get("date") or txn.get("transaction_date")
+            if not raw_date:
                 continue
-            txn_date = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+                
+            txn_date = datetime.strptime(
+                str(raw_date)[:10],
+                "%Y-%m-%d"
+            ).date()
 
             if (
                 txn_category == category.lower()

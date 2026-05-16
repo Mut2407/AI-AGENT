@@ -256,6 +256,9 @@
             
             <div style="background-color: var(--bg-primary); padding: 15px; border-radius: 8px; border: 1px dashed var(--accent); margin-bottom: 20px;">
                 <h4 style="margin-top: 0; color: var(--text-primary); margin-bottom: 10px;">Thêm danh mục ngân sách</h4>
+                <button onclick="copyPreviousBudget()" class="nav-button" style="background-color: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--accent); padding: 8px 15px; margin-bottom: 10px; width: 100%;">
+                    <i class="fa-solid fa-copy"></i> Sao chép ngân sách kỳ trước
+                </button>
                 <div class="budget-add-group" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <input type="text" id="newBudgetCategory" class="wizard-input" style="flex: 2; margin-bottom: 0;" placeholder="Tên danh mục (VD: Du lịch)">
                     <input type="text" id="newBudgetAmount" class="wizard-input" style="flex: 1; margin-bottom: 0;" placeholder="Hạn mức" oninput="formatCurrencyInput(this)">
@@ -782,7 +785,7 @@
             } catch (e) { console.error("Lỗi nạp ngân sách:", e); }
         }
 
-        function addNewBudgetCategory() {
+        async function addNewBudgetCategory() {
             if (!Array.isArray(window.categoriesList)) window.categoriesList = [];
             
             const catInput = document.getElementById('newBudgetCategory');
@@ -815,7 +818,14 @@
 
             const container = document.getElementById('budgetInputsContainer');
             let existingRow = document.querySelector(`.budget-mass-input[data-category="${catName}"]`);
-            
+            if (existingRow && existingRow.closest('.budget-row-container').style.display !== 'none') {
+                const ok = await showCustomConfirm(`Bạn đã có sẵn ngân sách cho "${catName}". Bạn có muốn cập nhật hạn mức thành ${amtInput.value} không?`);
+                if (!ok) {
+                    catInput.value = ''; 
+                    amtInput.value = '';
+                    return; 
+                }
+            }
             if (existingRow) {
                 existingRow.value = rawAmount; 
                 existingRow.setAttribute('value', rawAmount); 
@@ -1016,7 +1026,8 @@
                         const displayPercent = Math.min(percent, 100);
 
                         let barColor = '#4ade80';
-                        if (percent > 90) barColor = '#f87171';
+                        if (percent >= 100) barColor = '#ff0000';
+                        else if (percent > 90) barColor = '#f87171';
                         else if (percent > 75) barColor = '#fbbf24';
 
                         const endDate = new Date(b.end_date);
@@ -1126,6 +1137,60 @@
             }
             input.value = value;
         }
+        
+        async function copyPreviousBudget() {
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+            // Tính toán thời gian của kỳ trước
+            let prevStart, prevEnd;
+            const prevDate = new Date(currentDate);
+
+            if (currentPeriodType === 'month') {
+                prevDate.setMonth(prevDate.getMonth() - 1);
+                const bounds = getPeriodBoundsOverride(prevDate, 'month');
+                prevStart = bounds.start; prevEnd = bounds.end;
+            } else {
+                alert("Tính năng copy hiện chỉ hỗ trợ chế độ 'Theo Tháng'");
+                return;
+            }
+
+            try {
+                const startStr = getISODate(prevStart);
+                const endStr = getISODate(prevEnd);
+                // Gọi API lấy data tháng cũ
+                const res = await fetch(`/api/planning/budgets?start_date=${startStr}&end_date=${endStr}&period_type=${currentPeriodType}`, { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                });
+
+                if (res.ok) {
+                    const oldBudgets = await res.json();
+                    if(oldBudgets.length === 0) {
+                        showToast("Không có dữ liệu ngân sách nào ở tháng trước!", "error");
+                        return;
+                    }
+
+                    const rate = window.planRates[window.planCurrency] || 1;
+            
+                    // Gán dữ liệu tháng cũ vào các ô input của tháng hiện tại
+                    oldBudgets.forEach(b => {
+                        const input = document.querySelector(`.budget-mass-input[data-category="${b.category}"]`);
+                        if(input) {
+                            input.value = (b.limit_amount / rate).toFixed(0);
+                            input.closest('.budget-row-container').style.display = 'flex';
+                        } else {
+                            // Nếu danh mục đó chưa có ô input, tạo tạm cho người dùng
+                            document.getElementById('newBudgetCategory').value = b.category;
+                            document.getElementById('newBudgetAmount').value = (b.limit_amount / rate).toFixed(0);
+                            addNewBudgetCategory(); // Tận dụng lại hàm thêm mới của bạn
+                        }
+                    });
+
+                    updateTotalBudgetSum();
+                    showToast("Đã sao chép! Hãy bấm 'Lưu Tất Cả' để áp dụng.", "success");
+                }
+            } catch (error) {
+                showToast("Lỗi khi sao chép ngân sách", "error");
+            }
+        }
     </script>
 
     <div id="logoutConfirmModal" class="modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center;">
@@ -1137,6 +1202,7 @@
             </div>
         </div>
     </div>
+
     <script src="/static/chatbot.js"></script>
 </body>
 </html>
