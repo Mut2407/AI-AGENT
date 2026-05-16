@@ -42,9 +42,10 @@ def extract_expense_info(request: ExtractRequest):
         Trích xuất và trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng sau, KHÔNG GIẢI THÍCH, KHÔNG MARKDOWN:
         {{
             "name": "Tên cửa hàng, dịch vụ hoặc món đồ (ngắn gọn, ví dụ: FOODY CORP)",
-            "amount": số_tiền_chính_xác_bằng_số (Tuyệt đối KHÔNG quy đổi tỷ giá ngoại tệ, KHÔNG chuyển sang USD. Phải giữ nguyên con số gốc trên hóa đơn. Ví dụ: '26,000 VND' thì trả về đúng số 26000),
+            "amount": số_tiền_chính_xác_bằng_số (Luôn giữ nguyên con số gốc trên hóa đơn thành số dương. Tuyệt đối KHÔNG quy đổi tỷ giá. Ví dụ: '26,000 VND' thì trả về đúng số 26000),
             "category": "Phân loại vào 1 trong các nhóm: Ăn uống, Mua sắm, Di chuyển, Hóa đơn, Khác",
-            "date": "Ngày giao dịch theo định dạng YYYY-MM-DD. (Ví dụ: 2026-05-05). Nếu không tìm thấy ngày thì trả về null."
+            "date": "Ngày giao dịch theo định dạng YYYY-MM-DD. (Ví dụ: 2026-05-05).",
+            "type": "Trả về chữ 'chi' (nếu nội dung là thanh toán, chuyển tiền đi, trừ tiền) HOẶC trả về chữ 'thu' (nếu nội dung là nhận tiền lương, được chuyển khoản tới)."
         }}
         
         Nội dung:

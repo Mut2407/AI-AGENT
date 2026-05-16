@@ -543,7 +543,17 @@ def receive_n8n_receipt(
         if ai_response.status_code == 200:
             ai_data = ai_response.json()
             expense_name = ai_data.get("name", "Auto Receipt")
-            expense_amount = float(ai_data.get("amount", 0))
+            
+            # 🚀 LẤY SỐ TIỀN THÔ
+            raw_amount = float(ai_data.get("amount", 0))
+            
+            # 🚀 PHÂN XỬ THU CHI VÀ KẸP DẤU TRỪ
+            txn_type = ai_data.get("type", "chi") # Mặc định nghi ngờ là 'chi' cho an toàn
+            if txn_type == "chi":
+                expense_amount = -abs(raw_amount) # Ép thành số ÂM
+            else:
+                expense_amount = abs(raw_amount)  # Ép thành số DƯƠNG
+                
             expense_category = ai_data.get("category", "Khác")
             
             ai_date_str = ai_data.get("date")
