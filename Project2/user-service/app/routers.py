@@ -185,3 +185,18 @@ def get_user_by_email(email: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="Not found")
     return user
+
+@router.get("/internal/by-email")
+def get_user_by_email(email: str, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    # 🚀 Lấy thêm Config của user này
+    config = db.query(models.UserConfig).filter(models.UserConfig.user_id == user.id).first()
+    
+    # 🚀 Trả về cả username VÀ trạng thái nút bật tắt
+    return {
+        "username": user.username,
+        "is_email_sync_enabled": config.is_email_sync_enabled if config else False
+    }

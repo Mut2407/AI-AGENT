@@ -494,22 +494,21 @@ def delete_recurring_transaction(
 # ==========================================
 # 4. WEBHOOK TỪ n8n
 # ==========================================
-def get_user_id_by_email(email: str):
+def get_user_info_by_email(email: str):
     import requests
     import os
-    # Lưu ý: Cổng 8001 là cổng nội bộ giả định của User Service, em điều chỉnh nếu cần
     USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8000") 
     try:
         res = requests.get(f"{USER_SERVICE_URL}/api/users/internal/by-email?email={email}")
         if res.status_code == 200:
-            return res.json().get("username")
+            return res.json()  # 🚀 Trả về nguyên cục dict {"username": "a", "is_email_sync_enabled": True}
     except Exception as e:
         print("Lỗi khi gọi User Service:", e)
     return None
-@router.post("/webhooks/n8n-receipt", tags=["Webhooks"])
 
+@router.post("/webhooks/n8n-receipt", tags=["Webhooks"])
 def receive_n8n_receipt(
-    payload: N8nWebhookPayload,  # 🚀 ĐỔI SANG DÙNG CLASS NÀY THAY VÌ dict
+    payload: N8nWebhookPayload,
     x_api_key: str = Header(None),
     db: Session = Depends(get_db)
 ):
@@ -518,16 +517,25 @@ def receive_n8n_receipt(
         raise HTTPException(status_code=401, detail="Sai API Key! Từ chối truy cập.")
 
     # 2. XÁC ĐỊNH NGƯỜI DÙNG TỪ EMAIL
-    # Đổi cú pháp từ payload.get("receiver") thành payload.receiver
     email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', payload.receiver) 
     extracted_email = email_match.group(0).lower() if email_match else ""
 
-    user_id_to_save = get_user_id_by_email(extracted_email)
-    if not user_id_to_save:
+    # 🚀 ĐÃ SỬA: Gọi đúng tên hàm mới
+    user_info = get_user_info_by_email(extracted_email)
+    
+    # 🚀 ĐÃ SỬA: Kiểm tra xem user có tồn tại không
+    if not user_info or not user_info.get("username"):
         return {"status": "ignored", "message": f"Email {extracted_email} không có trong hệ thống!"}
 
+    # 🚀 CHỐT CHẶN MỚI: Kiểm tra công tắc đồng bộ email
+    if not user_info.get("is_email_sync_enabled"):
+        return {"status": "ignored", "message": f"Tài khoản {extracted_email} đang TẮT tính năng tự động hóa Email!"}
+
+    # 🚀 Lấy username để lưu vào Database
+    user_id_to_save = user_info.get("username")
+
     # 3. GỌI AI SERVICE ĐỂ BÓC TÁCH NỘI DUNG THÔ
-    raw_text = payload.raw_content  # Đổi cú pháp ở đây nữa
+    raw_text = payload.raw_content
     AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://ai-service:8000")
     
     try:
@@ -538,10 +546,8 @@ def receive_n8n_receipt(
             expense_amount = float(ai_data.get("amount", 0))
             expense_category = ai_data.get("category", "Khác")
             
-            # 🚀 ĐÃ SỬA: Lấy ngày từ AI trả về, nếu lỗi thì mới dùng ngày hiện tại
             ai_date_str = ai_data.get("date")
             try:
-                # Ép kiểu chuỗi YYYY-MM-DD từ AI thành đối tượng datetime
                 from datetime import datetime
                 expense_date = datetime.strptime(ai_date_str[:10], "%Y-%m-%d") if ai_date_str else datetime.now()
             except:
@@ -553,6 +559,8 @@ def receive_n8n_receipt(
         expense_name = "Biên lai chưa phân loại"
         expense_amount = 0.0
         expense_category = "Khác"
+        from datetime import datetime
+        expense_date = datetime.now()
 
     # 4. LƯU GIAO DỊCH VÀO DATABASE
     new_expense = models.Transaction(
@@ -560,7 +568,7 @@ def receive_n8n_receipt(
         name=expense_name[:255],
         category=expense_category,
         amount=expense_amount,
-        date=expense_date,  # 🚀 ĐÃ SỬA: Thay datetime.now() bằng expense_date
+        date=expense_date,
         tags=["Auto-Gmail"],
         user_id=user_id_to_save 
     )
