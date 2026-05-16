@@ -87,7 +87,7 @@ def get_current_user(req: Request):
     except requests.exceptions.RequestException:
         raise HTTPException(status_code=500, detail="Lỗi liên lạc User Service.")
 
-app = FastAPI(title="ExpenseOwl AI Service")
+
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
