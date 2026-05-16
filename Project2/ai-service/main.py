@@ -10,6 +10,54 @@ from datetime import datetime
 import re
 from datetime import datetime, timedelta # 🚀 Thêm timedelta
 import services
+from google import genai
+from fastapi import FastAPI, HTTPException, APIRouter
+from pydantic import BaseModel
+router = APIRouter()
+class ExtractRequest(BaseModel):
+    text: str
+@router.post("/api/ai/extract")
+def extract_expense_info(request: ExtractRequest):
+    try:
+        # Khởi tạo AI (Tự động lấy key từ biến môi trường GEMINI_API_KEY)
+        client = genai.Client() 
+        
+        # 🚀 VIẾT PROMPT RA LỆNH CHO AI
+        prompt = f"""
+        Bạn là một trợ lý tài chính thông minh của ứng dụng ExpenseOwl. 
+        Hãy đọc nội dung hóa đơn/email sau và trích xuất thông tin.
+        Trích xuất và trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng sau, KHÔNG GIẢI THÍCH, KHÔNG MARKDOWN:
+        {{
+            "name": "Tên cửa hàng, dịch vụ hoặc món đồ (ngắn gọn gọn, ví dụ: FOODY CORP)",
+            "amount": số_tiền_bằng_số_nguyên (chỉ lấy số dương, không chứa dấu phẩy hay chữ VND, ví dụ: 26000),
+            "category": "Phân loại vào 1 trong các nhóm: Ăn uống, Mua sắm, Di chuyển, Hóa đơn, Khác"
+        }}
+        
+        Nội dung:
+        {request.text}
+        """
+        
+        # Gọi Gemini xử lý
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        
+        # Làm sạch kết quả trả về để ép nó thành JSON thuần
+        raw_json = response.text.strip()
+        if raw_json.startswith("```json"):
+            raw_json = raw_json[7:-3].strip()
+        elif raw_json.startswith("```"):
+            raw_json = raw_json[3:-3].strip()
+            
+        result = json.loads(raw_json)
+        
+        # Trả cục JSON chuẩn về lại cho Transaction Service
+        return result
+        
+    except Exception as e:
+        print("Lỗi khi xử lý bằng Gemini:", e)
+        raise HTTPException(status_code=500, detail="AI không thể đọc được hóa đơn này")
 
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8000")
 TXN_SERVICE_URL = os.getenv("TXN_SERVICE_URL", "http://transaction-service:8000")
