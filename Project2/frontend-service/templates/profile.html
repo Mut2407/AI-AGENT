@@ -252,14 +252,20 @@
             }
 
             try {
-                // 🚀 ĐÃ SỬA: Đổi thành đường dẫn tương đối. File functions.js sẽ tự động 
-                // kẹp IP 172.207.48.96:8000 và Token vào cho em, code sẽ gọn và an toàn hơn!
-                const response = await fetch('/api/auth/me');
+                // 🚀 ĐÃ SỬA: Tự tay kẹp thẻ Authorization vào vì functions.js 
+                // sẽ bỏ qua mọi API có chữ '/auth/'
+                const response = await fetch('/api/auth/me', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
 
                 if (response.ok) {
                     const userData = await response.json();
                     
-                    // 🚀 ĐÃ SỬA: Lưu lại vào trí nhớ tạm để lát nữa bấm Sửa nó hiện ra đúng!
+                    // Lưu lại vào trí nhớ tạm để lát nữa bấm Sửa nó hiện ra đúng!
                     currentUserData = userData; 
                     
                     document.getElementById('displayFullName').innerText = userData.full_name || "Chưa cập nhật";
