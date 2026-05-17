@@ -4,7 +4,6 @@
 [![CI/CD Status](https://github.com/tcwiuy/ai-agent/workflows/CI/CD%20Pipeline%20for%20ExpenseOwl%20Agentic%20AI%20Project/badge.svg)](https://github.com/tcwiuy/ai-agent/actions)
 
 Kho lưu trữ (Monorepo) này chứa các dự án nghiên cứu và phát triển phần mềm ứng dụng **Agentic AI** thông minh kết hợp với kiến trúc hệ thống phân tán, DevOps chuyên sâu, phục vụ bài toán tối ưu hóa quy trình tự động và quản lý tài chính cá nhân.
-
 ---
 
 ## 📂 Cấu trúc Toàn bộ Kho lưu trữ (Monorepo Strategy)
