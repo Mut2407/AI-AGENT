@@ -1,3 +1,4 @@
 n8n_data/
 .env
 .n8n/
+.vscode/
