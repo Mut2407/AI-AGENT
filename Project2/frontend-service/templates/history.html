@@ -972,19 +972,36 @@
           allTags.clear();
           allExpenses.forEach((exp) => exp.tags.forEach((tag) => allTags.add(tag)));
 
+          // 🚀 BẮT ĐẦU THAY THẾ TỪ ĐOẠN NÀY XUỐNG ĐẾN HẾT VÒNG LẶP COLOR
           const savedColors = JSON.parse(localStorage.getItem("customCategoryColors") || "{}");
           const uniqueCategories = [...new Set(allExpenses.map((exp) => exp.category))];
           initialCategories.forEach((c) => { if (!uniqueCategories.includes(c)) uniqueCategories.push(c); });
           
-          // Tạo màu cho danh mục
           const colorPalette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#F7464A', '#8a2be2'];
-          uniqueCategories.forEach((category, index) => {
-            if (savedColors[category]) {
-              categoryColors[category] = savedColors[category];
-            } else {
-              categoryColors[category] = colorPalette[index % colorPalette.length] || "#8a2be2";
-            }
+          let hasNewColor = false; // Cờ theo dõi xem có cần lưu lại bộ nhớ không
+
+          uniqueCategories.forEach((category) => {
+              // Tìm xem danh mục này đã được lưu màu trước đó chưa (bỏ qua viết hoa/thường)
+              const foundKey = Object.keys(savedColors).find(k => k.toLowerCase() === category.toLowerCase());
+              
+              if (foundKey) {
+                  // Đã có màu -> Lấy ra xài, cấm đổi!
+                  categoryColors[category] = savedColors[foundKey];
+              } else {
+                  // Chưa có màu -> Gán màu mới dựa trên TỔNG SỐ màu đã lưu (số này không bao giờ nhảy lộn xộn)
+                  const nextIndex = Object.keys(savedColors).length;
+                  const newColor = colorPalette[nextIndex % colorPalette.length] || "#8a2be2";
+                  
+                  categoryColors[category] = newColor;
+                  savedColors[category] = newColor; // Bỏ ngay vào rổ savedColors
+                  hasNewColor = true; // Bật cờ để lát lưu
+              }
           });
+
+          // Nếu có danh mục nào vừa được cấp màu mới, LƯU CHẾT nó vào LocalStorage ngay!
+          if (hasNewColor) {
+              localStorage.setItem("customCategoryColors", JSON.stringify(savedColors));
+          }
 
           updatePeriodDisplayOverride();
           await loadJarsForSelect();         
