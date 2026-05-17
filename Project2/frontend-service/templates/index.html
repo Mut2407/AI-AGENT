@@ -2,7 +2,7 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
@@ -96,7 +96,7 @@
 
       html, body {
         overflow-x: hidden !important;
-        overflow-y: auto !important;   
+        overflow-y: auto !important;
         width: 100%;
         max-width: 100vw;
         margin: 0;
@@ -170,7 +170,7 @@
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 15px;
-        align-items: end;  
+        align-items: end;
         margin-bottom: 20px;
       }
       .form-group {
@@ -180,7 +180,7 @@
       }
 
       .more-menu-container {
-        display: none; 
+        display: none;
         position: relative;
         margin-left: auto;
       }
@@ -231,7 +231,7 @@
         .four-col-grid .form-group {
           grid-column: span 1 !important;
         }
-        
+
         .hide-on-mobile {
           display: none !important;
         }
@@ -323,13 +323,13 @@
               <i class="fa-solid fa-ellipsis-vertical"></i>
             </a>
             <div class="more-dropdown" id="mobileMoreDropdown">
-              <a href="/suggestions"><i class="fa-solid fa-lightbulb" style="color: #f59e0b"></i> Gợi Ý AI</a>
+              <a href="/suggestions"><i class="fa-solid fa-lightbulb" style="color: #f59e0b"></i>Gợi Ý AI</a>
               <a href="/profile"><i class="fa-solid fa-user-tie" style="color: #3b82f6"></i> Tài khoản</a>
               <a href="/settings"><i class="fa-solid fa-gear" style="color: #8b5cf6"></i> Cài Đặt</a>
               <a href="javascript:void(0)" onclick="showLogoutModal()" style="color: #ff4d4d"><i class="fa-solid fa-right-from-bracket"></i> Đăng Xuất</a>
             </div>
           </div>
-          
+
         </div>
       </header>
 
@@ -591,7 +591,7 @@
               <div class="form-group">
                 <label style="margin-bottom: 5px" title="Chỉ áp dụng cho Chi Tiêu">Nguồn tiền / Rút từ</label>
                 <select id="transactionJar" class="themed-input">
-                    <option value="">Ví chính (Số dư khả dụng)</option>
+                  <option value="">Ví chính (Số dư khả dụng)</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1277,7 +1277,7 @@
       let allTags = new Set();
       let selectedTags = new Set();
 
-      let currentPeriodType = "month";  
+      let currentPeriodType = "month";
       let isCalendarExpanded = true;
       let selectedDayFilter = null;
 
@@ -1302,7 +1302,7 @@
 
         // Cố gắng giữ lại giá trị cũ đang chọn (nếu có)
         if (currentValue && (expenseCategories.includes(currentValue) || incomeCategories.includes(currentValue))) {
-            categorySelect.value = currentValue;
+          categorySelect.value = currentValue;
         }
       }
 
@@ -1327,31 +1327,31 @@
       }
 
       async function loadJarsForTransactionForm() {
-          const jarSelect = document.getElementById('transactionJar');
-          if (!jarSelect) return;
+        const jarSelect = document.getElementById('transactionJar');
+        if (!jarSelect) return;
 
-          try {
-              const token = localStorage.getItem('token');
-              const response = await fetch('/api/planning/jars', {
-                  headers: { 'Authorization': `Bearer ${token}` }
-              });
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch('/api/planning/jars', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
 
-              if (response.ok) {
-                  const jars = await response.json();
-            
-                  const curr = typeof currentCurrency !== 'undefined' ? currentCurrency.toUpperCase() : 'VND';
-                  const rate = (typeof exchangeRatesToVND !== 'undefined' && exchangeRatesToVND[curr.toLowerCase()]) ? exchangeRatesToVND[curr.toLowerCase()] : 1;
+          if (response.ok) {
+            const jars = await response.json();
 
-                  jarSelect.innerHTML = '<option value="">Ví chính (Số dư khả dụng)</option>';
-            
-                  jars.forEach(jar => {
-                      let displayBalance = parseFloat(jar.balance) / rate;
-                      jarSelect.innerHTML += `<option value="${jar.id}">Hũ: ${jar.name} (Đang có: ${displayBalance.toLocaleString('vi-VN')} ${curr})</option>`;
-                  });
-              }
-          } catch (error) {
-              console.error("Lỗi khi tải danh sách Hũ:", error);
+            const curr = typeof currentCurrency !== 'undefined' ? currentCurrency.toUpperCase():'VND';
+            const rate = (typeof exchangeRatesToVND !== 'undefined' && exchangeRatesToVND[curr.toLowerCase()]) ? exchangeRatesToVND[curr.toLowerCase()]: 1;
+
+            jarSelect.innerHTML ='<option value="">Ví chính (Số dư khả dụng)</option>';
+
+            jars.forEach(jar => {
+              let displayBalance = parseFloat(jar.balance) / rate;
+              jarSelect.innerHTML += `<option value="${jar.id}">Hũ: ${jar.name} (Đang có: ${displayBalance.toLocaleString('vi-VN')} ${curr})</option>`;
+            });
           }
+        } catch (error) {
+          console.error("Lỗi khi tải danh sách Hũ:", error);
+        }
       }
 
       function showCustomAlert(message) {
@@ -1361,11 +1361,11 @@
 
       async function updateJarDashboardSummary() {
         try {
-          
-          const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-          if (!token) return; 
 
-          
+          const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+          if (!token) return;
+
+
           const resConfig = await fetch("/api/users/config", { // Đổi thành /users/config
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -1373,7 +1373,7 @@
 
           
           const currency = (config.currency || "usd").toLowerCase();
-          
+
           const rate = currency === "vnd" ? 1 : 25400;
 
           
@@ -1403,7 +1403,7 @@
           if (data.near_goal) {
             document.getElementById("dbNearGoal").innerText = data.near_goal.name;
             document.getElementById("dbNearGoalProgress").style.width = data.near_goal.percent + "%";
-            
+
             const formattedNearBal = formatMoney(data.near_goal.balance / rate);
             document.getElementById("dbNearGoalValue").innerHTML = `<span style="color: #fbbf24; font-weight: bold;">${data.near_goal.percent}%</span> — Số dư: ${formattedNearBal}`;
           } else {
@@ -1417,7 +1417,7 @@
             
             document.getElementById("dbBiggestJar").innerText =
               data.biggest_jar.name;
-            
+
             document.getElementById("dbBiggestValue").innerText = formatMoney(
               data.biggest_jar.balance / rate,
             );
@@ -1431,22 +1431,22 @@
         }
       }
 
-
+      
       function loadChatbot() {
-          if (!document.getElementById("dynamicChatbotScript")) {
-              const script = document.createElement("script");
-              script.id = "dynamicChatbotScript";
-              script.src = "/static/chatbot.js";
-              
-              script.onload = () => {
-                  if (document.readyState === "complete" || document.readyState === "interactive") {
-                      window.dispatchEvent(new Event("load"));
-                      document.dispatchEvent(new Event("DOMContentLoaded"));
-                  }
-              };
-              
-              document.body.appendChild(script);
-          }
+        if (!document.getElementById("dynamicChatbotScript")) {
+          const script = document.createElement("script");
+          script.id = "dynamicChatbotScript";
+          script.src = "/static/chatbot.js";
+
+          script.onload = () => {
+            if (document.readyState === "complete" || document.readyState === "interactive") {
+              window.dispatchEvent(new Event("load"));
+              document.dispatchEvent(new Event("DOMContentLoaded"));
+            }
+          };
+
+          document.body.appendChild(script);
+        }
       }
 
       let wStep = 1;
@@ -1480,23 +1480,23 @@
       }
 
       function checkSetupWizard(isNewUserFromServer) {
-          if (isNewUserFromServer === true) {
-              wData.expenseCategories = [...expenseCategories]; 
-              wData.incomeCategories = [...incomeCategories];
-              switchWizCatType('expense');
-              document.getElementById('setupWizardOverlay').style.display = 'flex';
-          } else {
-              loadChatbot();  
-          }
+        if (isNewUserFromServer === true) {
+          wData.expenseCategories = [...expenseCategories];
+          wData.incomeCategories = [...incomeCategories];
+          switchWizCatType('expense');
+          document.getElementById('setupWizardOverlay').style.display = 'flex';
+        } else {
+          loadChatbot();
+        }
       }
 
-      function skipWizard() { 
-          document.getElementById('setupWizardOverlay').style.display = 'none'; 
-          if(window.showToast) showToast("Đã bỏ qua thiết lập ban đầu", "success"); 
-          loadChatbot(); 
+      function skipWizard() {
+        document.getElementById('setupWizardOverlay').style.display = 'none';
+        if (window.showToast) showToast("Đã bỏ qua thiết lập ban đầu", "success");
+        loadChatbot();
       }
       function markWizardDone() {
-        
+
       }
 
       function switchWizCatType(type) {
@@ -1640,9 +1640,9 @@
           };
           await fetch("/api/users/categories/edit", {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
             },
             body: JSON.stringify(payloadObject),
           }).catch((e) => {});
@@ -1651,9 +1651,9 @@
           const risk = document.getElementById("wRiskTolerance").value;
           await fetch("/api/users/profile/edit", {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
             },
             body: JSON.stringify({ goal: goal, risk: risk }),
           }).catch((e) => {});
@@ -1697,7 +1697,7 @@
           document.getElementById("setupWizardOverlay").style.display = "none";
           if (window.showToast)
             showToast("Thiết lập thành công! Hãy bắt đầu theo dõi.", "success");
-            
+
           loadChatbot();
           await initialize();
         } catch (e) {
@@ -1724,7 +1724,7 @@
         }
       }
 
-
+      
       function renderCalendar() {
         const grid = document.getElementById("calGrid");
         const widget = document.getElementById("calendarWidget");
@@ -1888,7 +1888,7 @@
         updateChartAndLegend();
       };
 
-
+      
       async function initialize() {
         try {
           let isNewUser = false;
@@ -1897,31 +1897,31 @@
           try {
             const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             const configResponse = await fetch("/api/users/config", {
-                headers: { 'Authorization': `Bearer ${token}` }
+              headers: { 'Authorization': `Bearer ${token}` }
             });
             if (configResponse.ok) {
               const fetchedConfig = await configResponse.json();
               if (fetchedConfig) {
-                  // ÉP GÁN TRỰC TIẾP VÀO BIẾN TOÀN CỤC CỦA WEB
-                  expenseCategories = fetchedConfig.expenseCategories || ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
-                  incomeCategories = fetchedConfig.incomeCategories || ["Lương", "Thưởng", "Đầu tư", "Khác"];
-                  isNewUser = fetchedConfig.is_new_user;
-                  window.currentCurrency = fetchedConfig.currency || "usd";
+                // ÉP GÁN TRỰC TIẾP VÀO BIẾN TOÀN CỤC CỦA WEB
+                expenseCategories = fetchedConfig.expenseCategories || ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
+                incomeCategories = fetchedConfig.incomeCategories || ["Lương", "Thưởng", "Đầu tư", "Khác"];
+                isNewUser = fetchedConfig.is_new_user;
+                window.currentCurrency = fetchedConfig.currency || "usd";
               }
             } else {
-                expenseCategories = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
-                incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
-                window.currentCurrency = "usd";
-            }
-          } catch (e) {
-              console.log("Lỗi tải config:", e);
               expenseCategories = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
               incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
               window.currentCurrency = "usd";
+            }
+          } catch (e) {
+            console.log("Lỗi tải config:", e);
+            expenseCategories = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"];
+            incomeCategories = ["Lương", "Thưởng", "Đầu tư", "Khác"];
+            window.currentCurrency = "usd";
           }
 
           initialCategories = [...expenseCategories, ...incomeCategories];
-          
+
           // 🚀 GỌI HÀM NÀY ĐỂ VẼ LẠI CÁI DROPDOWN THÊM GIAO DỊCH LẬP TỨC
           updateExpenseFormCategoryOptions();
           currentCurrency = window.currentCurrency;
@@ -1931,7 +1931,7 @@
           try {
             const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             const response = await fetch("/api/expenses/", {
-                headers: { 'Authorization': `Bearer ${token}` }
+              headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
               const data = await response.json();
@@ -1950,7 +1950,7 @@
             if (typeof exp.date === "string" && exp.date.trim() !== "") safeDate = exp.date;
 
             let catName = exp.category || "Khác";
-            return { ...exp, amount: parseFloat(exp.amount) || 0, date: safeDate, tags: safeTags, category: catName };
+            return { ...exp, amount: parseFloat(exp.amount) || 0, date: safeDate, tags: safeTags, category: catName};
           });
 
           allTags.clear();
@@ -1958,8 +1958,8 @@
 
           const savedColors = JSON.parse(localStorage.getItem("customCategoryColors") || "{}");
           const uniqueCategories = [...new Set(allExpenses.map((exp) => exp.category))];
-          initialCategories.forEach((c) => { if (!uniqueCategories.includes(c)) uniqueCategories.push(c); });
-          
+          initialCategories.forEach((c) => { if (!uniqueCategories.includes(c)) uniqueCategories.push(c);});
+
           // Tạo màu cho danh mục
           const colorPalette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#F7464A', '#8a2be2'];
           uniqueCategories.forEach((category, index) => {
@@ -1971,17 +1971,17 @@
           });
 
           updatePeriodDisplayOverride();
-          await loadJarsForSelect();         
-          if (typeof loadJarsForTransactionForm === "function") await loadJarsForTransactionForm(); 
-          
-          if (typeof updateChartAndLegend === "function") updateChartAndLegend();            
+          await loadJarsForSelect();
+          if (typeof loadJarsForTransactionForm === "function") await loadJarsForTransactionForm();
+
+          if (typeof updateChartAndLegend === "function") updateChartAndLegend();
           if (typeof updateTable === "function") updateTable();
-          
+
           if (typeof setupTagInput === "function") setupTagInput();
-          
+
           // 🚀 BẬT BẢNG SETUP WIZARD NẾU LÀ NGƯỜI MỚI HOẶC BỊ KẸT TIẾNG ANH
-          if (typeof checkSetupWizard === "function") checkSetupWizard(isNewUser); 
-          
+          if (typeof checkSetupWizard === "function") checkSetupWizard(isNewUser);
+        
         } catch (error) {
           console.error("Lỗi chí mạng khi khởi tạo:", error);
         }
@@ -2157,10 +2157,10 @@
 
         const totalIncomeAll = calculateIncome(allExpenses);
         const totalExpenseAll = calculateExpenses(allExpenses);
-        
+
         let totalInJars = 0;
         if (typeof globalJars !== 'undefined') {
-            totalInJars = globalJars.reduce((sum, jar) => sum + parseFloat(jar.balance || 0), 0);
+          totalInJars = globalJars.reduce((sum, jar) => sum + parseFloat(jar.balance || 0), 0);
         }
 
         const totalBalanceAll = totalIncomeAll - totalExpenseAll - totalInJars;
@@ -2177,10 +2177,10 @@
           balanceElement.classList.add("negative");
           balanceElement.classList.remove("positive");
         }
-        
+
         const balanceLabel = document.querySelector('.cashflow-item.balance .cashflow-label');
         if (balanceLabel) {
-            balanceLabel.textContent = "Số Dư Khả Dụng";
+          balanceLabel.textContent = "Số Dư Khả Dụng";
         }
       }
 
@@ -2558,7 +2558,7 @@
 
       document.getElementById("expenseForm").addEventListener("submit", async (e) => {
           e.preventDefault();
-          
+
           let rawStringAmount = document.getElementById("amount").value.replace(/,/g, "");
           let rawAmount = parseFloat(rawStringAmount);
 
@@ -2568,7 +2568,7 @@
           }
 
           const selectedCategory = document.getElementById("category").value;
-          
+
           // 🚀 BÍ KÍP Ở ĐÂY: AI tự động nhận diện Thu hay Chi dựa vào Danh mục em chọn
           const isGain = incomeCategories.includes(selectedCategory);
 
@@ -2579,81 +2579,113 @@
           let amountInVND = rawAmount * rate;
 
           // ========================================================
-        // 🚀 TÍNH NĂNG: CẢNH BÁO NGÂN SÁCH & BẤT THƯỜNG
-        // ========================================================
-        if (!isGain && selectedCategory) {
-            let warningMessages = []; 
+          // 🚀 KIỂM TRA SỐ DƯ HŨ (JARS) TRƯỚC KHI CHI TIÊU
+          // ========================================================
+          const jarSelectEl = document.getElementById('jar_id') || document.getElementById('transactionJar');
+          const selectedJarVal = jarSelectEl ? jarSelectEl.value : null;
+
+          if (!isGain && selectedJarVal) {
+              const jarId = parseInt(selectedJarVal);
+              const jarData = globalJars.find(j => j.id === jarId);
+
+              if (jarData) {
+                  let previousAmountVND = 0;
+                  const formElem = document.getElementById("expenseForm");
+                  if (formElem && formElem.dataset.editId) {
+                      const editId = formElem.dataset.editId;
+                      const oldTxn = allExpenses.find(e => e.id == editId);
+                      if (oldTxn && oldTxn.jar_id === jarId) {
+                          previousAmountVND = Math.abs(oldTxn.amount);
+                      }
+                  }
+
+                  const requiredBalance = amountInVND - previousAmountVND;
+
+                  if (jarData.balance < requiredBalance) {
+                      const balanceDisplay = formatCurrency(jarData.balance + previousAmountVND);
+                      const amountDisplay = formatCurrency(amountInVND);
+                      showCustomAlert(`Hũ "${jarData.name}" hiện không đủ tiền để thực hiện giao dịch này!\n\n- Số dư khả dụng: ${balanceDisplay}\n- Số tiền định rút: ${amountDisplay}\n\nVui lòng nạp thêm tiền vào hũ.`);
+                      return;
+                  }
+              }
+          }
+
+          // ========================================================
+          // 🚀 TÍNH NĂNG: CẢNH BÁO NGÂN SÁCH & BẤT THƯỜNG
+          // ========================================================
+          if (!isGain && selectedCategory) {
+            let warningMessages = [];
             const token = localStorage.getItem("token") || localStorage.getItem("access_token");
 
             // 1. KIỂM TRA NGÂN SÁCH
             try {
-                const txnDateObj = new Date(document.getElementById("date").value);
-                const year = txnDateObj.getFullYear();
-                const month = String(txnDateObj.getMonth() + 1).padStart(2, '0');
-                const lastDay = new Date(year, txnDateObj.getMonth() + 1, 0).getDate();
-                
-                const startDate = `${year}-${month}-01`;
-                const endDate = `${year}-${month}-${lastDay}`;
+              const txnDateObj = new Date(document.getElementById("date").value);
+              const year = txnDateObj.getFullYear();
+              const month = String(txnDateObj.getMonth() + 1).padStart(2, '0');
+              const lastDay = new Date(year, txnDateObj.getMonth() + 1, 0).getDate();
 
-                const resBudgets = await fetch(`/api/planning/budgets?start_date=${startDate}&end_date=${endDate}&period_type=month`, { 
-                    headers: { 'Authorization': `Bearer ${token}` } 
+              const startDate = `${year}-${month}-01`;
+              const endDate = `${year}-${month}-${lastDay}`;
+
+              const resBudgets = await fetch(`/api/planning/budgets?start_date=${startDate}&end_date=${endDate}&period_type=month`, {
+                  headers: {'Authorization': `Bearer ${token}` }
                 });
 
-                if (resBudgets.ok) {
-                    const currentBudgets = await resBudgets.json();
-                    const categoryBudget = currentBudgets.find(b => b.category === selectedCategory);
-                    
-                    if (categoryBudget && categoryBudget.limit_amount > 0) {
-                        let previousAmountVND = 0;
-                        const formElem = document.getElementById("expenseForm");
-                        if (formElem && formElem.dataset.editId) {
-                            const editId = formElem.dataset.editId;
-                            const oldTxn = allExpenses.find(e => e.id == editId);
-                            if (oldTxn && oldTxn.category === selectedCategory) {
-                                previousAmountVND = Math.abs(oldTxn.amount);
-                            }
-                        }
+              if (resBudgets.ok) {
+                const currentBudgets = await resBudgets.json();
+                const categoryBudget = currentBudgets.find(b => b.category === selectedCategory);
 
-                        const totalAfterExpense = categoryBudget.spent_amount - previousAmountVND + amountInVND;
-                        
-                        if (totalAfterExpense > categoryBudget.limit_amount) {
-                            warningMessages.push(`⚠️ VƯỢT NGÂN SÁCH: Tổng chi (${formatCurrency(totalAfterExpense)}) sẽ vượt hạn mức tháng (${formatCurrency(categoryBudget.limit_amount)}).`);
-                        }
+                if (categoryBudget && categoryBudget.limit_amount > 0) {
+                  let previousAmountVND = 0;
+                  const formElem = document.getElementById("expenseForm");
+                  if (formElem && formElem.dataset.editId) {
+                    const editId = formElem.dataset.editId;
+                    const oldTxn = allExpenses.find(e => e.id == editId);
+                    if (oldTxn && oldTxn.category === selectedCategory) {
+                      previousAmountVND = Math.abs(oldTxn.amount);
                     }
+                  }
+
+                  const totalAfterExpense = categoryBudget.spent_amount - previousAmountVND + amountInVND;
+
+                  if (totalAfterExpense > categoryBudget.limit_amount) {
+                    warningMessages.push(`⚠️ VƯỢT NGÂN SÁCH: Tổng chi (${formatCurrency(totalAfterExpense)}) sẽ vượt hạn mức tháng (${formatCurrency(categoryBudget.limit_amount)}).`);
+                  }
                 }
-            } catch(error) { console.error("Lỗi kiểm tra ngân sách:", error); }
+              }
+            } catch (error) { console.error("Lỗi kiểm tra ngân sách:", error);}
 
             // 2. KIỂM TRA BẤT THƯỜNG (> 3 LẦN TRUNG BÌNH)
             try {
-                const txnDateStr = document.getElementById("date").value;
-                const txnDateObj2 = new Date(txnDateStr);
-                const txnMonth = txnDateObj2.getMonth();
-                const txnYear = txnDateObj2.getFullYear();
+              const txnDateStr = document.getElementById("date").value;
+              const txnDateObj2 = new Date(txnDateStr);
+              const txnMonth = txnDateObj2.getMonth();
+              const txnYear = txnDateObj2.getFullYear();
 
-                const categoryExpenses = allExpenses.filter((exp) => {
-                    if (exp.amount >= 0 || exp.category !== selectedCategory) return false;
-                    const expDateObj = new Date(exp.date);
-                    return expDateObj.getMonth() === txnMonth && expDateObj.getFullYear() === txnYear;
-                });
-                
-                let categoryAverageVND = 0;
-                if (categoryExpenses.length > 0) {
-                    const totalCategory = categoryExpenses.reduce((sum, exp) => sum + Math.abs(exp.amount), 0);
-                    categoryAverageVND = totalCategory / categoryExpenses.length;
-                }
+              const categoryExpenses = allExpenses.filter((exp) => {
+                if (exp.amount >= 0 || exp.category !== selectedCategory) return false;
+                const expDateObj = new Date(exp.date);
+                return expDateObj.getMonth() === txnMonth && expDateObj.getFullYear() === txnYear;
+              });
 
-                if (categoryAverageVND > 0 && amountInVND > categoryAverageVND * 3) {
-                    warningMessages.push(`🚨 CHI TIÊU BẤT THƯỜNG: Số tiền (${formatCurrency(amountInVND)}) lớn hơn GẤP NHIỀU LẦN mức trung bình của mục này (${formatCurrency(categoryAverageVND)}).`);
-                }
-            } catch(error) { console.error("Lỗi kiểm tra bất thường:", error); }
+              let categoryAverageVND = 0;
+              if (categoryExpenses.length > 0) {
+                const totalCategory = categoryExpenses.reduce((sum, exp) => sum + Math.abs(exp.amount), 0);
+                categoryAverageVND = totalCategory / categoryExpenses.length;
+              }
+
+              if (categoryAverageVND > 0 && amountInVND > categoryAverageVND * 3) {
+                warningMessages.push(`🚨 CHI TIÊU BẤT THƯỜNG: Số tiền (${formatCurrency(amountInVND)}) lớn hơn GẤP NHIỀU LẦN mức trung bình của mục này (${formatCurrency(categoryAverageVND)}).`);
+              }
+            } catch (error) { console.error("Lỗi kiểm tra bất thường:", error);}
 
             // 3. HIỂN THỊ CẢNH BÁO
             if (warningMessages.length > 0) {
-                const finalMsg = `HỆ THỐNG PHÁT HIỆN CÁC VẤN ĐỀ SAU:\n\n` + warningMessages.join('\n\n') + `\n\nBạn có chắc chắn thông tin nhập vào là chính xác và vẫn muốn lưu?`;
-                const userConfirmed = await showCustomConfirm(finalMsg);
-                if (!userConfirmed) return;
+              const finalMsg = `HỆ THỐNG PHÁT HIỆN CÁC VẤN ĐỀ SAU:\n\n` + warningMessages.join('\n\n') + `\n\nBạn có chắc chắn thông tin nhập vào là chính xác và vẫn muốn lưu?`;
+              const userConfirmed = await showCustomConfirm(finalMsg);
+              if (!userConfirmed) return;
             }
-        }
+          }
           // 🚀 Tự động gắn dấu Trừ (-) nếu là khoản Chi
           let finalAmountToSave = amountInVND;
           if (!isGain) {
@@ -2677,13 +2709,13 @@
             const token = localStorage.getItem("token") || localStorage.getItem("access_token");
             const response = await fetch("/api/expenses/", {
               method: "POST",
-              headers: { 
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${token}`
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
               },
               body: JSON.stringify(formData),
             });
-            
+
             if (response.ok) {
               if (window.showToast) showToast("Đã thêm giao dịch thành công!", "success");
               const lastDate = document.getElementById("date").value;
@@ -2700,7 +2732,7 @@
           } catch (error) {
             if (window.showToast) showToast("Lỗi kết nối đến máy chủ", "error");
           }
-      });
+        });
 
       async function sendToAI() {
         const inputField = document.getElementById("aiInput");
@@ -2839,7 +2871,7 @@
         }
       }
 
-
+      
       let isAppReady = false;
       document.addEventListener("DOMContentLoaded", () => {
         if (isAppReady) return;
@@ -2869,27 +2901,27 @@
         }
 
         const nameInput = document.getElementById("name");
-        if(nameInput) {
-            nameInput.addEventListener("click", (e) => {
-                if (e.target.value === "-") e.target.value = "";
-            });
+        if (nameInput) {
+          nameInput.addEventListener("click", (e) => {
+            if (e.target.value === "-") e.target.value = "";
+          });
         }
 
         const aiInput = document.getElementById("aiInput");
-        if(aiInput) {
-            aiInput.addEventListener("keypress", function (e) {
-                if (e.key === "Enter") {
-                    sendToAI();
-                }
-            });
+        if (aiInput) {
+          aiInput.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+              sendToAI();
+            }
+          });
         }
 
         const chartTypeSelect = document.getElementById("chartTypeSelect");
-        if(chartTypeSelect) {
-            chartTypeSelect.addEventListener("change", (e) => {
-                currentChartType = e.target.value;
-                updateChartAndLegend();
-            });
+        if (chartTypeSelect) {
+          chartTypeSelect.addEventListener("change", (e) => {
+            currentChartType = e.target.value;
+            updateChartAndLegend();
+          });
         }
 
         updateJarDashboardSummary();
@@ -3116,7 +3148,7 @@
         top: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0,0,0,0.8);
+        background-color: rgba(0, 0, 0, 0.8);
         align-items: center;
         justify-content: center;
       "

@@ -1067,17 +1067,37 @@
 
 
 
-        if (!isGain && selectedJar) {
-            const jarId = parseInt(selectedJar);
-            const jarData = globalJars.find(j => j.id === jarId);
-            
-            if (jarData && jarData.balance < amountInVND) {
-                const balanceDisplay = formatCurrency(jarData.balance);
-                const amountDisplay = formatCurrency(amountInVND);
-                showCustomAlert(`Quỹ "${jarData.name}" hiện không đủ tiền để thực hiện giao dịch này!\n\n- Số dư hiện tại: ${balanceDisplay}\n- Số tiền cần rút: ${amountDisplay}`);
-                return; 
-            }
-        }
+        // ========================================================
+          // 🚀 KIỂM TRA SỐ DƯ HŨ (JARS) TRƯỚC KHI CHI TIÊU
+          // ========================================================
+          const jarSelectEl = document.getElementById('jar_id') || document.getElementById('transactionJar');
+          const selectedJarVal = jarSelectEl ? jarSelectEl.value : null;
+
+          if (!isGain && selectedJarVal) {
+              const jarId = parseInt(selectedJarVal);
+              const jarData = globalJars.find(j => j.id === jarId);
+
+              if (jarData) {
+                  let previousAmountVND = 0;
+                  const formElem = document.getElementById("expenseForm");
+                  if (formElem && formElem.dataset.editId) {
+                      const editId = formElem.dataset.editId;
+                      const oldTxn = allExpenses.find(e => e.id == editId);
+                      if (oldTxn && oldTxn.jar_id === jarId) {
+                          previousAmountVND = Math.abs(oldTxn.amount);
+                      }
+                  }
+
+                  const requiredBalance = amountInVND - previousAmountVND;
+
+                  if (jarData.balance < requiredBalance) {
+                      const balanceDisplay = formatCurrency(jarData.balance + previousAmountVND);
+                      const amountDisplay = formatCurrency(amountInVND);
+                      showCustomAlert(`Hũ "${jarData.name}" hiện không đủ tiền để thực hiện giao dịch này!\n\n- Số dư khả dụng: ${balanceDisplay}\n- Số tiền định rút: ${amountDisplay}\n\nVui lòng nạp thêm tiền vào hũ.`);
+                      return;
+                  }
+              }
+          }
 
         // 🚀 Lấy Token chuẩn xác nhất để dùng chung cho toàn bộ hàm
         const token = localStorage.getItem('token') || localStorage.getItem('access_token');
