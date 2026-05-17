@@ -356,7 +356,7 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
     t_inc_month = total_income_month / req.rate
     t_exp_month = total_expense_month / req.rate
 
-    jars_context = "QUỸ (HŨ):\n" + ("".join([f"- '{j['name']}': {(float(j.get('balance', 0) or 0) / req.rate):,.0f}\n" for j in jars]) if jars else "Trống.\n")
+    jars_context = "QUỸ (HŨ):\n" + ("".join([f"- '{j['name']}': Số dư {(float(j.get('balance', 0) or 0) / req.rate):,.0f} | Mục tiêu {(float(j.get('goal_amount', 0) or 0) / req.rate):,.0f}\n" for j in jars]) if jars else "Trống.\n")
     budgets_context = "NGÂN SÁCH:\n" + ("".join([f"- '{b['category']}': Đã tiêu {(abs(float(b.get('spent_amount',0) or 0)) / req.rate):,.0f} / Hạn mức {(float(b.get('limit_amount',0) or 0)) / req.rate:,.0f}\n" for b in budgets]) if budgets else "Trống.\n")
     history_text = "LỊCH SỬ CHAT:\n" + "".join([f"User: {turn.get('user', '')}\nAI: {turn.get('ai', '')}\n" for turn in req.history[-3:]]) if req.history else ""
 
@@ -405,6 +405,11 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
        - "update": SỬA giao dịch. ⚠️ LUẬT THÉP CHỐNG ĐOÁN MÒ: Hãy kiểm tra loại mặt hàng khách nhắc đến (VD: "sách", "trà sữa"). NẾU TRONG DANH SÁCH GIAO DỊCH GẦN ĐÂY CÓ TỪ 2 GIAO DỊCH TRỞ LÊN CHỨA MẶT HÀNG ĐÓ, TUYỆT ĐỐI KHÔNG TỰ ĐOÁN (kể cả khi khách nói "lúc nãy", "vừa xong"). Bắt buộc chuyển action thành "chat" và hỏi: "Cú Mèo thấy có nhiều giao dịch liên quan đến [Tên mặt hàng], bạn muốn sửa khoản chính xác nào?". CHỈ dùng "update" khi danh sách chỉ có DUY NHẤT 1 kết quả khớp.
        - "update_profile": CHỈ KHI khách đổi mục tiêu DÀI HẠN. ⚠️ BẮT BUỘC GOM NHÓM YÊU CẦU: Điền vào trường "financial_goal" ĐÚNG 1 CỤM TỪ TRONG: [Tiết kiệm phòng thân, Đầu tư sinh lời, Trả dứt điểm nợ, Mua sắm tài sản lớn, Cải thiện dòng tiền]. Điền vào "risk_tolerance" ĐÚNG 1 TỪ TRONG: [An toàn, Cân bằng, Mạo hiểm].
        - "create_jar" / "delete_jar": Tạo mới hoặc Xóa hũ.
+       🚨 LUẬT BẮT BUỘC KHI XÓA HŨ:
+         Trước khi thực hiện xóa, bạn PHẢI kiểm tra 'Số dư' của hũ đó trong dữ liệu QUỸ (HŨ) được cung cấp.
+         + Nếu Số dư = 0: Thực hiện trả về action "delete_jar" bình thường.
+         + Nếu Số dư > 0: TUYỆT ĐỐI KHÔNG trả về action "delete_jar". Bạn phải dùng action "chat" để cảnh báo người dùng: "Hũ [Tên hũ] đang có số dư [Số tiền]. Nếu xóa, số tiền này sẽ được hoàn lại về ví chính của bạn. Bạn có chắc chắn muốn xóa không?".
+         + Khi và chỉ khi người dùng chat lại xác nhận (VD: "chắc chắn", "đồng ý", "cứ xóa đi"), bạn mới được phép gọi action "delete_jar".
        - "jar_transfer": NẠP/RÚT/CHUYỂN tiền giữa các hũ.
        - "chat": Trò chuyện bình thường, giải đáp thắc mắc.
 
@@ -493,7 +498,66 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
         requests.put(f"{TXN_SERVICE_URL}/api/expenses/internal/update/{target_id}", json=update_payload, headers=headers)
 
     elif final_action == "jar_transfer" and result_json.get("jar_data"):
-        services.transfer_jars(username, result_json["jar_data"])
+        j_data = result_json["jar_data"]
+        
+        # 1. Chuẩn hóa Type
+        raw_type = str(j_data.get("type", "")).strip().lower()
+        if "withdraw" in raw_type or "rút" in raw_type:
+            action_type = "withdraw"
+        elif "internal" in raw_type or "chuyển" in raw_type:
+            action_type = "internal"
+        else:
+            action_type = "deposit"
+            
+        # FIX CỐT LÕI: Không khai báo to_id và from_id bằng None nữa
+        transfer_payload = {
+            "type": action_type,
+            "amount": float(j_data.get("amount", 0)) * req.rate
+        }
+        
+        # 2. Chuẩn hóa Tên hũ
+        raw_name = j_data.get("name") or j_data.get("jar_name") or ""
+        jar_name = str(raw_name).lower().replace("hũ", "").strip()
+        
+        raw_target = j_data.get("target_name") or ""
+        target_name = str(raw_target).lower().replace("hũ", "").strip()
+        
+        # 3. Thuật toán quét và dò tìm ID hũ
+        for j in jars:
+            db_name = str(j.get("name", "")).lower().replace("hũ", "").strip()
+            
+            if jar_name and (jar_name in db_name or db_name in jar_name):
+                if action_type == "deposit":
+                    transfer_payload["to_id"] = j["id"]
+                elif action_type in ["withdraw", "internal"]:
+                    transfer_payload["from_id"] = j["id"]
+                    
+            if target_name and (target_name in db_name or db_name in target_name):
+                transfer_payload["to_id"] = j["id"]
+                
+            if action_type == "deposit" and target_name and "to_id" not in transfer_payload:
+                if target_name in db_name or db_name in target_name:
+                    transfer_payload["to_id"] = j["id"]
+
+        # 4. Gửi API an toàn
+        try:
+            # Kiểm tra xem có lấy được ID nào chưa (Bằng cách check key trong Dict)
+            if "to_id" not in transfer_payload and "from_id" not in transfer_payload:
+                raise Exception("Không nhận diện được tên hũ")
+            
+            services.transfer_jars(username, transfer_payload)
+        except Exception as e:
+            error_msg = str(e.detail) if hasattr(e, 'detail') else "Không khớp được hũ nào như bạn nói."
+            result_json["reply"] = result_json.get("reply", "") + f"\n\n❌ Lỗi giao dịch: {error_msg}"
+            print("Lỗi chuyển quỹ:", e)
+        
+    elif final_action == "create_jar" and result_json.get("jar_data"):
+        j_data = result_json["jar_data"]
+        j_data["goal_amount"] = float(j_data.get("goal_amount", 0)) * req.rate 
+        services.create_jar(username, j_data)
+        
+    elif final_action == "delete_jar" and result_json.get("jar_data"):
+        services.delete_jar_by_name(username, result_json["jar_data"].get("name", ""))
         
     elif final_action == "update_profile" and result_json.get("profile_update"):
         p_update = result_json["profile_update"]

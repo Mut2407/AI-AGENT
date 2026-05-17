@@ -417,9 +417,9 @@ def get_dashboard_summary(db: Session = Depends(get_db), current_user: dict = De
     """
     uid = str(current_user["id"])
     
-    # ==========================================
+    
     # 1. XỬ LÝ DỮ LIỆU HŨ (JARS)
-    # ==========================================
+    
     jars = db.query(models.Jar).filter(models.Jar.user_id == uid).all()
     total_balance = sum(j.balance for j in jars)
     
@@ -438,9 +438,9 @@ def get_dashboard_summary(db: Session = Depends(get_db), current_user: dict = De
 
     biggest_jar = max(jars, key=lambda j: j.balance) if jars else None
 
-    # ==========================================
+   
     # 2. XỬ LÝ DỮ LIỆU NGÂN SÁCH (BUDGET)
-    # ==========================================
+    
     current_month = datetime.now().month
     current_year = datetime.now().year
     
@@ -469,9 +469,9 @@ def get_dashboard_summary(db: Session = Depends(get_db), current_user: dict = De
                 max_budget_percent = percent
                 near_exceed = {"category": b.category, "percent": round(percent, 1)}
 
-    # ==========================================
+    
     # 3. TRẢ VỀ CHO FRONTEND
-    # ==========================================
+
     return {
         # Data của Hũ
         "total_balance": float(total_balance),
@@ -485,3 +485,55 @@ def get_dashboard_summary(db: Session = Depends(get_db), current_user: dict = De
         "highest_spent_category": {"category": highest_spent_cat, "amount": float(max_spent)} if highest_spent_cat and max_spent > 0 else None,
         "near_exceed_budget": near_exceed
     }
+
+# ==========================================
+# 4. API NỘI BỘ (INTERNAL) CHO AI-SERVICE 
+# ==========================================
+from fastapi import Request
+from sqlalchemy import func
+
+def get_internal_uid(req: Request):
+    uid = req.headers.get("X-Internal-User-Id")
+    if not uid:
+        raise HTTPException(status_code=401, detail="Từ chối truy cập nội bộ")
+    return uid
+
+@router.get("/internal/jars/{user_id}")
+def internal_get_jars(user_id: str, db: Session = Depends(get_db)):
+    return db.query(models.Jar).filter(models.Jar.user_id == user_id).order_by(models.Jar.id).all()
+
+@router.get("/internal/budgets/{user_id}")
+def internal_get_budgets(user_id: str, start_date: str, end_date: str, period_type: str, db: Session = Depends(get_db)):
+    start = datetime.strptime(start_date[:10], "%Y-%m-%d").date()
+    return db.query(models.Budget).filter(
+        models.Budget.user_id == user_id,
+        func.extract('month', models.Budget.start_date) == start.month,
+        func.extract('year', models.Budget.start_date) == start.year,
+        models.Budget.period_type == period_type
+    ).all()
+
+@router.post("/internal/jars")
+def internal_create_jar(payload: dict = Body(...), db: Session = Depends(get_db), uid: str = Depends(get_internal_uid)):
+    new_jar = models.Jar(
+        name=payload.get("name", "Hũ mới"),
+        goal_amount=safe_decimal(payload.get("goal_amount", 0)),
+        percent=0,
+        balance=0.0,
+        user_id=uid
+    )
+    db.add(new_jar)
+    db.commit()
+    return {"status": "success"}
+
+@router.delete("/internal/jars/{jar_id}")
+def internal_delete_jar(jar_id: int, db: Session = Depends(get_db), uid: str = Depends(get_internal_uid)):
+    jar = db.query(models.Jar).filter(models.Jar.id == jar_id, models.Jar.user_id == uid).first()
+    if jar:
+        db.delete(jar)
+        db.commit()
+    return {"status": "success"}
+
+@router.post("/internal/jars/transfer")
+def internal_transfer_jar(payload: TransferPayload, db: Session = Depends(get_db), uid: str = Depends(get_internal_uid)):
+    # Tái sử dụng hàm transfer_jar sẵn có ở phía trên
+    return transfer_jar(payload, db, current_user={"id": uid, "token": "internal_bypass"})
