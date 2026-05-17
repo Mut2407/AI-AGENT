@@ -185,10 +185,10 @@
                     <span class="label">Giới tính</span>
                     <span class="value" id="displayGender">-</span>
                     <select id="editGender" class="themed-input" style="display: none;">
-                        <option value="male">Nam</option>
-                        <option value="female">Nữ</option>
-                        <option value="other">Khác</option>
-                        <option value="secret">Bảo mật</option>
+                        <option value="Nam">Nam</option>
+                        <option value="Nữ">Nữ</option>
+                        <option value="Khác">Khác</option>
+                        <option value="Bảo mật">Bảo mật</option>
                     </select>
                 </div>
                 
@@ -272,17 +272,15 @@
                     document.getElementById('displayUsername').innerText = "@" + userData.username;
                     document.getElementById('userEmail').innerText = userData.email || "N/A";
                     
-                    // 🚀 BÍ KÍP VIỆT HÓA CHẾ ĐỘ XEM:
-                    let rawGender = userData.gender || "N/A";
+                    let rawGender = (userData.gender || "N/A").trim();
+                    const lowerRaw = rawGender.toLowerCase();
                     const genderMap = {
                         'male': 'Nam',
                         'female': 'Nữ',
                         'other': 'Khác',
                         'secret': 'Bảo mật'
                     };
-                    // Dò trong từ điển, nếu có tiếng Anh thì dịch sang tiếng Việt. 
-                    // Nếu không có (nghĩa là đã lưu tiếng Việt rồi) thì giữ nguyên.
-                    document.getElementById('displayGender').innerText = genderMap[rawGender] || rawGender;
+                    document.getElementById('displayGender').innerText = genderMap[lowerRaw] || rawGender;
                     
                     // Xử lý hiển thị ngày sinh theo định dạng DD/MM/YYYY cho đẹp
                     if (userData.dob) {
@@ -317,18 +315,16 @@
             document.getElementById('displayGender').style.display = 'none';
             document.getElementById('editGender').style.display = 'inline-block';
             
-            // 🚀 BÍ KÍP ĐỒNG BỘ GIỚI TÍNH LÊN DROPDOWN XỔ XUỐNG
-            let currentGender = currentUserData.gender || '';
+            // 🚀 BÍ KÍP: Cắt khoảng trắng và ép về chữ thường để so sánh không bao giờ xịt
+            let currentGender = (currentUserData.gender || '').trim();
+            let checkGender = currentGender.toLowerCase();
             
-            // Nếu dữ liệu trong DB là tiếng Anh (tài khoản cũ), ta dịch sang tiếng Việt 
-            // để khớp CHÍNH XÁC với thuộc tính value="..." của các thẻ <option>
-            if (currentGender === 'male') currentGender = 'Nam';
-            if (currentGender === 'female') currentGender = 'Nữ';
-            if (currentGender === 'other') currentGender = 'Khác';
-            if (currentGender === 'secret') currentGender = 'Bảo mật';
+            if (checkGender === 'male') currentGender = 'Nam';
+            if (checkGender === 'female') currentGender = 'Nữ';
+            if (checkGender === 'other') currentGender = 'Khác';
+            if (checkGender === 'secret') currentGender = 'Bảo mật';
             
-            // Gán giá trị đã chuẩn hóa vào ô select. 
-            // Trình duyệt sẽ tự động tìm option có value tương ứng và hiển thị lên!
+            // Gán thẳng chữ tiếng Việt vào HTML
             document.getElementById('editGender').value = currentGender; 
 
             document.getElementById('viewActions').style.display = 'none';
