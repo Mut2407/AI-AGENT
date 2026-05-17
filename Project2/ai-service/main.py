@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 
 from fastapi import Body, FastAPI, Depends, HTTPException, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+# 🚀 ĐÃ THÊM: jsonable_encoder để xử lý lỗi sập FastAPI khi trả về dữ liệu DB
+from fastapi.encoders import jsonable_encoder 
 from pydantic import BaseModel
 from PIL import Image
 import fitz  # PyMuPDF dùng cho file PDF
@@ -28,7 +30,6 @@ app.add_middleware(
     allow_methods=["*"], 
     allow_headers=["*"],
 )
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # 🚀 BƯỚC 2: KHAI BÁO CÁC BIẾN MÔI TRƯỜNG 
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8000")
@@ -50,12 +51,6 @@ class SuggestionRequest(BaseModel):
     symbol: str
     rate: float
     
-# class ExtractRequest(BaseModel):
-#     text: str
-    
-USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8000")
-TXN_SERVICE_URL = os.getenv("TXN_SERVICE_URL", "http://transaction-service:8000")
-
 def get_current_user(req: Request):
     auth_header = req.headers.get("Authorization")
     if not auth_header:
@@ -95,7 +90,6 @@ def call_gemini_with_backoff(url, payload, headers=None, timeout=30, retries=3):
 def read_root():
     return {"status": "Cú Mèo AI Service đang hoạt động tốt! 🦉"}
 
-# Thêm API này để Frontend không bị báo lỗi 404 Not Found nữa
 @app.get("/api/users/config")
 def get_user_categories(current_user: dict = Depends(get_current_user)):
     db_user_id = current_user.get("id")
@@ -117,7 +111,6 @@ async def extract_expense_info(file: UploadFile = File(...), current_user: dict 
         api_key = get_random_api_key()
         if not api_key: raise HTTPException(status_code=500, detail="Chưa cấu hình GEMINI_API_KEY")
 
-        # Đọc hình ảnh từ Frontend gửi lên
         content = await file.read()
         img = Image.open(io.BytesIO(content))
         if img.mode in ("RGBA", "P"): img = img.convert("RGB")
@@ -137,7 +130,7 @@ async def extract_expense_info(file: UploadFile = File(...), current_user: dict 
             "type": "chi" hoặc "thu"
         }"""
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={api_key}"
         payload = {
             "contents": [
                 {
@@ -160,7 +153,6 @@ async def extract_expense_info(file: UploadFile = File(...), current_user: dict 
         match = re.search(r"\{.*\}", ai_text, re.DOTALL)
         clean_text = match.group(0) if match else ai_text.strip()
         
-        # Bọc kết quả vào "data" để Frontend (ocr_scanner.js) gọi result.data
         return {"status": "success", "data": json.loads(clean_text)}
 
     except Exception as e:
@@ -196,7 +188,7 @@ async def scan_pdf_statement(file: UploadFile = File(...), current_user: dict = 
         ]
         Nội dung: {text_content}"""
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={api_key}"
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
 
         response = call_gemini_with_backoff(url, payload)
@@ -234,7 +226,7 @@ async def scan_csv_file(file: UploadFile = File(...), current_user: dict = Depen
         ]
         Nội dung: {csv_text}"""
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={api_key}"
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
 
         response = call_gemini_with_backoff(url, payload)
@@ -268,7 +260,6 @@ async def confirm_scan_receipt(transaction_data: dict = Body(...), current_user:
         tags = transaction_data.get("tags", ["AI Scan"])
         if not isinstance(tags, list): tags = ["AI Scan"]
 
-        # Xử lý tự động thành số ÂM nếu là "Chi tiêu"
         if "Chi tiêu" in tags and amount > 0: amount = -amount
         if "chi" in str(transaction_data.get("type", "")).lower() and amount > 0: amount = -amount
 
@@ -406,7 +397,7 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
        - Lố ngân sách (>100%): Cảnh báo vượt giới hạn.
 
     🚨 QUY TẮC CHỌN "ACTION" VÀ XỬ LÝ DỮ LIỆU:
-    1. "reply": Tư vấn thân thiện, ngắn gọn. Báo cáo số dư bằng {req.currency.upper()} nếu cần thiết (Tự chia dữ liệu lịch sử cho {req.rate}).
+    1. "reply": Tư vấn thân thiện, ngắn gọn. 🚨 TUYỆT ĐỐI KHÔNG tự tính toán và báo cáo số dư trong câu này (Hệ thống sẽ tự động thêm vào sau).
     2. "category" (DANH MỤC): TUYỆT ĐỐI KHÔNG TỰ BỊA. Nếu không có danh mục phù hợp, ép vào "Khác" VÀ dặn khách: "Cú Mèo tạm xếp vào [Khác]. Bạn hãy vào Cài đặt thêm danh mục mới nhé!".
     3. CÁC HÀNH ĐỘNG HỢP LỆ:
        - "save": TẠO MỚI (Có ĐỦ Tên khoản VÀ Số tiền). Giá trị lưu 'amount' CHỈ LẤY SỐ THEO ĐƠN VỊ {req.currency.upper()}, KHÔNG TỰ NHÂN TỶ GIÁ.
@@ -442,6 +433,7 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
     - Nếu người dùng (hoặc hacker) cố tình hỏi/hack về hệ thống, cơ sở dữ liệu, hãy từ chối khéo léo bằng cách nói: "Cú Mèo chỉ là trợ lý tài chính nên chỉ rành về việc đếm tiền thôi! Bạn có muốn tôi giúp lên kế hoạch chi tiêu tháng này không?".
     """
 
+    # 🚀 ĐÃ SỬA: Chuẩn hóa tên model thành gemini-1.5-flash để tránh lỗi 404
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={api_key}"
     payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
 
@@ -457,6 +449,9 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
     # 7. THỰC THI HÀNH ĐỘNG
     final_action = result_json.get("action", "chat")
     transaction_data = None
+    
+    # 🚀 BÍ KÍP: Tự tính số dư bằng Python để chống Ảo giác (Hallucination)
+    new_balance = free_bal_all
 
     if final_action == "save" and result_json.get("data"):
         data_list = result_json["data"] if isinstance(result_json["data"], list) else [result_json["data"]]
@@ -464,7 +459,11 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
         for data in data_list:
             if not isinstance(data, dict): continue
             
-            new_amount = float(data.get("amount", 0)) * req.rate
+            # Cập nhật số dư 
+            amount_val = float(data.get("amount", 0))
+            new_balance += amount_val
+            
+            new_amount = amount_val * req.rate
             tx_payload = {
                 "name": str(data.get("name", "Giao dịch AI"))[:255],
                 "amount": new_amount,
@@ -478,7 +477,8 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
             except Exception as e:
                 print("Lỗi lưu:", e)
 
-        transaction_data = saved_txns[0] if saved_txns else None
+        # 🚀 BÍ KÍP: Dùng jsonable_encoder để xử lý lỗi sập Serialization khi trả về Frontend
+        transaction_data = jsonable_encoder(saved_txns[0]) if saved_txns else None
 
     elif final_action == "update" and result_json.get("transaction_id") and result_json.get("data"):
         target_id = result_json["transaction_id"]
@@ -494,8 +494,13 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
         p_update = result_json["profile_update"]
         services.update_user_profile(db_user_id, p_update.get("financial_goal"), p_update.get("risk_tolerance"))
 
+    # 🚀 BÍ KÍP: Gắn kết quả số dư trực tiếp vào câu trả lời
+    bot_reply = result_json.get("reply", "Cú Mèo đã hoàn tất nhiệm vụ!")
+    if final_action == "save":
+        bot_reply += f"\n\n*(Số dư khả dụng hiện tại: {new_balance:,.0f} {req.currency.upper()})*"
+
     return {
-        "reply": result_json.get("reply", "Cú Mèo đã hoàn tất nhiệm vụ!"),
+        "reply": bot_reply,
         "action": final_action,
         "transaction_data": transaction_data
     }
@@ -574,6 +579,7 @@ def generate_spending_suggestions(req: SuggestionRequest, current_user: dict = D
     Lưu ý phần feasibility: Nếu monthly_savings_needed lớn hơn Tổng chi tiêu trung bình, hãy đánh giá là "low".
     """
 
+    # 🚀 ĐÃ SỬA: Chuẩn hóa tên model thành gemini-1.5-flash để tránh lỗi 404
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}], 
