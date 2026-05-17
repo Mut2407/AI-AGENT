@@ -252,31 +252,33 @@
             }
 
             try {
-                // Gọi qua API Gateway (Cổng 8000)
-                const response = await fetch('http://172.207.48.96:8000/api/auth/me', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + token,
-                        'Content-Type': 'application/json'
-                    }
-                });
+                // 🚀 ĐÃ SỬA: Đổi thành đường dẫn tương đối. File functions.js sẽ tự động 
+                // kẹp IP 172.207.48.96:8000 và Token vào cho em, code sẽ gọn và an toàn hơn!
+                const response = await fetch('/api/auth/me');
 
                 if (response.ok) {
                     const userData = await response.json();
                     
-                    // Điền thông tin vào các thẻ HTML dựa trên ID bạn đã đặt
+                    // 🚀 ĐÃ SỬA: Lưu lại vào trí nhớ tạm để lát nữa bấm Sửa nó hiện ra đúng!
+                    currentUserData = userData; 
+                    
                     document.getElementById('displayFullName').innerText = userData.full_name || "Chưa cập nhật";
                     document.getElementById('displayUsername').innerText = "@" + userData.username;
                     document.getElementById('userEmail').innerText = userData.email || "N/A";
                     document.getElementById('displayGender').innerText = userData.gender || "N/A";
-                    document.getElementById('displayDob').innerText = userData.dob || "N/A";
                     
-                    // Nếu có avatar hoặc chữ cái đầu tên
+                    // Xử lý hiển thị ngày sinh theo định dạng DD/MM/YYYY cho đẹp
+                    if (userData.dob) {
+                        const dobParts = userData.dob.split('-');
+                        document.getElementById('displayDob').innerText = `${dobParts[2]}/${dobParts[1]}/${dobParts[0]}`;
+                    } else {
+                        document.getElementById('displayDob').innerText = "N/A";
+                    }
+                    
                     if(document.getElementById('userInitial')) {
                         document.getElementById('userInitial').innerText = userData.full_name ? userData.full_name.charAt(0).toUpperCase() : userData.username.charAt(0).toUpperCase();
                     }
                 } else {
-                    // Nếu token hết hạn hoặc không hợp lệ
                     localStorage.removeItem('access_token');
                     window.location.href = '/login';
                 }

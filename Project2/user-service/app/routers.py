@@ -50,7 +50,22 @@ def update_user_me(user_update: schemas.UserUpdateProfile, db: Session = Depends
     db.commit()
     db.refresh(current_user)
     return current_user
-
+# 🚀 THÊM API ĐỔI MẬT KHẨU VÀO ĐÂY
+@router.put("/change-password")
+def change_password(
+    password_data: schemas.UserUpdatePassword, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    # 1. Kiểm tra xem mật khẩu cũ có gõ đúng không
+    if not auth.verify_password(password_data.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng!")
+    
+    # 2. Băm mật khẩu mới và lưu vào DB
+    current_user.hashed_password = auth.get_password_hash(password_data.new_password)
+    db.commit()
+    
+    return {"message": "Đổi mật khẩu thành công!"}
 # ==========================================
 # 2. CÁC API PHỤC VỤ TRỰC TIẾP CHO GIAO DIỆN WEB (WIZARD & SETTINGS)
 # ==========================================
