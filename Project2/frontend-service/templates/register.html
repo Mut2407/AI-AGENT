@@ -115,7 +115,19 @@
             const password = document.getElementById('regPassword').value;
             const confirmPassword = document.getElementById('regConfirmPassword').value;
 
-            if (password !== confirmPassword) { showToast("Mật khẩu nhập lại không khớp!", "error"); return; }
+            // 🚀 BÍ KÍP: Thêm chốt chặn ngay tại đây!
+            if (fullName.length < 2) { 
+                showToast("Họ và tên phải từ 2 ký tự trở lên!", "error"); 
+                return; 
+            }
+            if (username.length < 2) { 
+                showToast("Tên đăng nhập phải từ 2 ký tự trở lên!", "error"); 
+                return; 
+            }
+            if (password !== confirmPassword) { 
+                showToast("Mật khẩu nhập lại không khớp!", "error"); 
+                return; 
+            }
 
             const payload = { full_name: fullName, gender: gender, dob: dob, email: email, username: username, password: password };
             const btn = e.target.querySelector('button');
