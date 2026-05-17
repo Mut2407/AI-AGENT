@@ -271,7 +271,18 @@
                     document.getElementById('displayFullName').innerText = userData.full_name || "Chưa cập nhật";
                     document.getElementById('displayUsername').innerText = "@" + userData.username;
                     document.getElementById('userEmail').innerText = userData.email || "N/A";
-                    document.getElementById('displayGender').innerText = userData.gender || "N/A";
+                    
+                    // 🚀 BÍ KÍP VIỆT HÓA CHẾ ĐỘ XEM:
+                    let rawGender = userData.gender || "N/A";
+                    const genderMap = {
+                        'male': 'Nam',
+                        'female': 'Nữ',
+                        'other': 'Khác',
+                        'secret': 'Bảo mật'
+                    };
+                    // Dò trong từ điển, nếu có tiếng Anh thì dịch sang tiếng Việt. 
+                    // Nếu không có (nghĩa là đã lưu tiếng Việt rồi) thì giữ nguyên.
+                    document.getElementById('displayGender').innerText = genderMap[rawGender] || rawGender;
                     
                     // Xử lý hiển thị ngày sinh theo định dạng DD/MM/YYYY cho đẹp
                     if (userData.dob) {
