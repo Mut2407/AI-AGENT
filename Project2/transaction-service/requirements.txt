@@ -10,3 +10,6 @@ python-multipart
 kafka-python
 requests
 prometheus-fastapi-instrumentator
+pytest
+httpx
+pytest-mock
