@@ -252,7 +252,6 @@
             }
 
             try {
-                // 🚀 BÍ KÍP ĐỒNG BỘ: Gọi cả 2 API nội bộ cùng lúc để lấy thông tin cá nhân và cấu hình AI
                 const [userRes, configRes] = await Promise.all([
                     fetch('/api/auth/me', {
                         method: 'GET',
@@ -271,20 +270,18 @@
                 ]);
 
                 if (userRes.ok && configRes.ok) {
-                    const userData = await userRes.res.json() ? await userRes.json() : {};
+                    // 🚀 ĐÃ SỬA: Bỏ cái ".res" lằng nhằng đi, ép gọi trực tiếp .json()
+                    const userData = await userRes.json();
                     const configData = await configRes.json();
                     
                     currentUserData = userData; 
                     
-                    // 1. Điền thông tin cá nhân cơ bản
                     document.getElementById('displayFullName').innerText = userData.full_name || "Chưa cập nhật";
                     document.getElementById('displayUsername').innerText = "@" + userData.username;
                     document.getElementById('userEmail').innerText = userData.email || "N/A";
                     
-                    // 🚀 2. ĐỒNG BỘ MỤC TIÊU AI: Lấy trực tiếp từ configData vừa cào về
                     document.getElementById('userGoal').innerText = configData.financial_goal || "Chưa xác định";
                     
-                    // 3. Việt hóa hiển thị giới tính chống lỗi "other/male/female"
                     let rawGender = (userData.gender || "N/A").trim();
                     const lowerRaw = rawGender.toLowerCase();
                     const genderMap = {
@@ -295,7 +292,6 @@
                     };
                     document.getElementById('displayGender').innerText = genderMap[lowerRaw] || rawGender;
                     
-                    // 4. Xử lý hiển thị ngày sinh theo định dạng DD/MM/YYYY
                     if (userData.dob) {
                         const dobParts = userData.dob.split('-');
                         document.getElementById('displayDob').innerText = `${dobParts[2]}/${dobParts[1]}/${dobParts[0]}`;
@@ -303,7 +299,6 @@
                         document.getElementById('displayDob').innerText = "N/A";
                     }
                     
-                    // 5. Cập nhật chữ cái đại diện Avatar
                     if(document.getElementById('userInitial')) {
                         document.getElementById('userInitial').innerText = userData.full_name ? userData.full_name.charAt(0).toUpperCase() : userData.username.charAt(0).toUpperCase();
                     }
