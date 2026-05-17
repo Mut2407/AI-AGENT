@@ -12,23 +12,36 @@ Kho lưu trữ (Monorepo) này chứa các dự án nghiên cứu và phát tri�
 AI-AGENT/
 ├── .github/
 │   └── workflows/
-│       ├── main.yml             # CI/CD tự động chạy Pytest Matrix & Push Docker Hub (Project 2)
-│       └── deploy.yml           # Workflow cấu hình bổ trợ triển khai hạ tầng
-├── BaiTap1/                     # Các module bài tập nền tảng về AI Agent tra cứu phim tự động
-├── BaiTap2/                     # Các module n8n workflow và cấu hình tích hợp
+│       ├── main.yml             
+│       └── deploy.yml          
+├── BaiTap1/                     
+├── BaiTap2/                     
 │
-├── Project1/                     # PHÂN HỆ DỰ ÁN 1 (ExpenseOwl Monolithic-to-K8s)
+├── Project1/                     
 │   └── ExpenseOwl-main/
-│       ├── cmd/expenseowl/      # Luồng khởi tạo core service viết bằng ngôn ngữ Go
-│       ├── kubernetes/          # Tệp cấu hình phân lớp Ingress, SVC, Deployment, PVC, ConfigMap
-│       ├── main.py              # Backend API wrapper xử lý logic Python
-│       └── ai-agent-service/    # Module AI agent nền tảng phục vụ bóc tách hóa đơn sơ bộ
+│       ├── cmd/expenseowl/      
+│       ├── kubernetes/          
+│       ├── main.py              
+│       └── ai-agent-service/    
 │
-└── Project2/                     # PHÂN HỆ DỰ ÁN 2 (Hệ thống AI Tài chính - Microservices)
-    ├── api-gateway/             # API Gateway (Uvicorn Catch-all router) điều phối luồng dữ liệu (Cổng 8000)
-    ├── user-service/            # Quản lý xác thực JWT OAuth2, Hồ sơ, cấu hình kiểm thử tests/
-    ├── transaction-service/     # Tiếp nhận biến động số dư, đẩy bản tin Kafka Producer sang DB
-    ├── budget-service/          # Quản lý ngân sách hũ tài chính, Kafka Consumer tự động đồng bộ
-    ├── ai-service/              # Module tích hợp LLM (Google Gemini) xử lý OCR Ảnh/PDF/CSV Sao kê
-    ├── notification-service/    # Lắng nghe sự kiện Kafka gửi thông báo cảnh báo chi tiêu vượt ngưỡng
-    └── frontend-service/        # Giao diện Web hiển thị Dashboard, Chatbot tương tác trực quan (Cổng 3001)
+└── Project2/                     
+    ├── api-gateway/             
+    ├── user-service/            
+    ├── transaction-service/     
+    ├── budget-service/          
+    ├── ai-service/              
+    ├── notification-service/    
+    └── frontend-service/        
+
+---
+
+## 🧪 Hệ thống Kiểm thử Tự động hóa (Automated Testing Strategy)
+
+Dự án áp dụng mô hình kiểm thử cô lập chuyên sâu cho từng phân hệ Microservice dựa trên bộ ba công cụ: **Pytest**, **FastAPI TestClient** và chiến lược **Advanced Mocking** (Giả lập thành phần phụ thuộc). Toàn bộ dữ liệu kiểm thử được đồng bộ hóa và bao phủ (Test Coverage) dựa trên các tiêu chí kiểm thử thành phần, kiểm thử tích hợp và kiểm thử hệ thống.
+
+```text
+Project2/
+├── user-service/app/tests/             
+├── transaction-service/app/tests/     
+├── budget-service/app/tests/           
+└── ai-service/tests/                   
