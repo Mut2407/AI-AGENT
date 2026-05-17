@@ -32,9 +32,8 @@ AI-AGENT/
     ├── ai-service/              
     ├── notification-service/    
     └── frontend-service/        
-
----
-
+---  
+```
 ## 🧪 Hệ thống Kiểm thử Tự động hóa (Automated Testing Strategy)
 
 Dự án áp dụng mô hình kiểm thử cô lập chuyên sâu cho từng phân hệ Microservice dựa trên bộ ba công cụ: **Pytest**, **FastAPI TestClient** và chiến lược **Advanced Mocking** (Giả lập thành phần phụ thuộc). Toàn bộ dữ liệu kiểm thử được đồng bộ hóa và bao phủ (Test Coverage) dựa trên các tiêu chí kiểm thử thành phần, kiểm thử tích hợp và kiểm thử hệ thống.
@@ -44,4 +43,4 @@ Project2/
 ├── user-service/app/tests/             
 ├── transaction-service/app/tests/     
 ├── budget-service/app/tests/           
-└── ai-service/tests/                   
+└── ai-service/tests/ 
