@@ -244,41 +244,6 @@ async def scan_csv_file(file: UploadFile = File(...), current_user: dict = Depen
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     
-# ==========================================
-# API LƯU GIAO DỊCH VÀO DB 
-# ==========================================
-@app.post("/api/ai/extract/confirm")
-async def confirm_scan_receipt(transaction_data: dict = Body(...), current_user: dict = Depends(get_current_user)):
-    try:
-        amount = float(transaction_data.get("amount", 0))
-        if amount == 0:
-            raise HTTPException(status_code=400, detail="Số tiền không được bằng 0")
-
-        name = str(transaction_data.get("name", "Giao dịch")).strip()
-        category = str(transaction_data.get("category", "Khác")).strip()
-        date_str = str(transaction_data.get("date", "")).strip()
-
-        tags = transaction_data.get("tags", ["OCR"])
-        if not isinstance(tags, list): tags = ["OCR"]
-
-        if "Chi tiêu" in tags and amount > 0: amount = -amount
-        if "chi" in str(transaction_data.get("type", "")).lower() and amount > 0: amount = -amount
-
-        tx_payload = {
-            "name": name[:255] if name else "Giao dịch",
-            "amount": amount,
-            "category": category,
-            "date": date_str if date_str else datetime.now().strftime("%Y-%m-%d"),
-            "tags": tags,
-            "note": str(transaction_data.get("notes", "")).strip()
-        }
-        username = current_user.get("username")
-        saved_txn = services.save_transaction(username, tx_payload)
-
-        if not saved_txn: raise Exception("Transaction Service từ chối lưu")
-        return {"status": "success", "message": f"Đã lưu: {tx_payload['name']}", "transaction": saved_txn}
-    except Exception as e: 
-        raise HTTPException(status_code=500, detail=f"Lỗi lưu: {str(e)}")
 
 # ==========================================
 # API CHATBOX
