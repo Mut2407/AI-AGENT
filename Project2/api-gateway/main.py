@@ -3,8 +3,9 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware # Thêm thư viện này
 import httpx
 import os
-
+from prometheus_fastapi_instrumentator import Instrumentator
 app = FastAPI(title="ExpenseOwl API Gateway")
+Instrumentator().instrument(app).expose(app)
 
 # Cấu hình CORS để cho phép Frontend (cổng 3001) gọi API
 app.add_middleware(

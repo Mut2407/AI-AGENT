@@ -4,12 +4,12 @@ from database import engine, Base
 import models
 import threading
 from kafka_con import start_kafka_consumer
-
+from prometheus_fastapi_instrumentator import Instrumentator
 # 🚀 Thợ xây móng nhà Budget
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Budget Service")
-
+Instrumentator().instrument(app).expose(app)
 @app.on_event("startup")
 def startup_event():
     print("📡 Kafka Consumer đang lắng nghe giao dịch...")
