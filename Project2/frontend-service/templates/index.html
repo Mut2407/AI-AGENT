@@ -2578,36 +2578,82 @@
           }
           let amountInVND = rawAmount * rate;
 
-          // Cảnh báo ngân sách (Chỉ áp dụng cho Khoản Chi)
-          if (!isGain && selectedCategory) {
+          // ========================================================
+        // 🚀 TÍNH NĂNG: CẢNH BÁO NGÂN SÁCH & BẤT THƯỜNG
+        // ========================================================
+        if (!isGain && selectedCategory) {
+            let warningMessages = []; 
+            const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+
+            // 1. KIỂM TRA NGÂN SÁCH
             try {
-              const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-              const resBudgets = await fetch("/api/planning/budgets", {
-                headers: { Authorization: `Bearer ${token}` },
-              });
+                const txnDateObj = new Date(document.getElementById("date").value);
+                const year = txnDateObj.getFullYear();
+                const month = String(txnDateObj.getMonth() + 1).padStart(2, '0');
+                const lastDay = new Date(year, txnDateObj.getMonth() + 1, 0).getDate();
+                
+                const startDate = `${year}-${month}-01`;
+                const endDate = `${year}-${month}-${lastDay}`;
 
-              if (resBudgets.ok) {
-                const currentBudgets = await resBudgets.json();
-                const categoryBudget = currentBudgets.find((b) => b.category === selectedCategory);
+                const resBudgets = await fetch(`/api/planning/budgets?start_date=${startDate}&end_date=${endDate}&period_type=month`, { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                });
 
-                if (categoryBudget && categoryBudget.limit_amount > 0) {
-                  const totalAfterExpense = categoryBudget.spent_amount + amountInVND;
+                if (resBudgets.ok) {
+                    const currentBudgets = await resBudgets.json();
+                    const categoryBudget = currentBudgets.find(b => b.category === selectedCategory);
+                    
+                    if (categoryBudget && categoryBudget.limit_amount > 0) {
+                        let previousAmountVND = 0;
+                        const formElem = document.getElementById("expenseForm");
+                        if (formElem && formElem.dataset.editId) {
+                            const editId = formElem.dataset.editId;
+                            const oldTxn = allExpenses.find(e => e.id == editId);
+                            if (oldTxn && oldTxn.category === selectedCategory) {
+                                previousAmountVND = Math.abs(oldTxn.amount);
+                            }
+                        }
 
-                  if (totalAfterExpense > categoryBudget.limit_amount) {
-                    const limitDisplay = formatCurrency(categoryBudget.limit_amount);
-                    const newTotalDisplay = formatCurrency(totalAfterExpense);
-                    const confirmMsg = `CẢNH BÁO VƯỢT NGÂN SÁCH!\n\nKhoản chi này sẽ làm bạn vượt hạn mức ngân sách của mục "${selectedCategory}".\n- Hạn mức: ${limitDisplay}\n- Tổng nếu lưu: ${newTotalDisplay}\n\nBạn có chắc chắn muốn tiếp tục lưu không?`;
-
-                    const userConfirmed = await showCustomConfirm(confirmMsg);
-                    if (!userConfirmed) return;
-                  }
+                        const totalAfterExpense = categoryBudget.spent_amount - previousAmountVND + amountInVND;
+                        
+                        if (totalAfterExpense > categoryBudget.limit_amount) {
+                            warningMessages.push(`⚠️ VƯỢT NGÂN SÁCH: Tổng chi (${formatCurrency(totalAfterExpense)}) sẽ vượt hạn mức tháng (${formatCurrency(categoryBudget.limit_amount)}).`);
+                        }
+                    }
                 }
-              }
-            } catch (error) {
-              console.error("Không thể kiểm tra ngân sách:", error);
-            }
-          }
+            } catch(error) { console.error("Lỗi kiểm tra ngân sách:", error); }
 
+            // 2. KIỂM TRA BẤT THƯỜNG (> 3 LẦN TRUNG BÌNH)
+            try {
+                const txnDateStr = document.getElementById("date").value;
+                const txnDateObj2 = new Date(txnDateStr);
+                const txnMonth = txnDateObj2.getMonth();
+                const txnYear = txnDateObj2.getFullYear();
+
+                const categoryExpenses = allExpenses.filter((exp) => {
+                    if (exp.amount >= 0 || exp.category !== selectedCategory) return false;
+                    const expDateObj = new Date(exp.date);
+                    return expDateObj.getMonth() === txnMonth && expDateObj.getFullYear() === txnYear;
+                });
+                
+                let categoryAverageVND = 0;
+                if (categoryExpenses.length > 0) {
+                    const totalCategory = categoryExpenses.reduce((sum, exp) => sum + Math.abs(exp.amount), 0);
+                    categoryAverageVND = totalCategory / categoryExpenses.length;
+                }
+
+                if (categoryAverageVND > 0 && amountInVND > categoryAverageVND * 3) {
+                    warningMessages.push(`🚨 CHI TIÊU BẤT THƯỜNG: Số tiền (${formatCurrency(amountInVND)}) lớn hơn GẤP NHIỀU LẦN mức trung bình của mục này (${formatCurrency(categoryAverageVND)}).`);
+                }
+            } catch(error) { console.error("Lỗi kiểm tra bất thường:", error); }
+
+            // 3. HIỂN THỊ CẢNH BÁO
+            if (warningMessages.length > 0) {
+                const finalMsg = `HỆ THỐNG PHÁT HIỆN CÁC VẤN ĐỀ SAU:\n\n` + warningMessages.join('\n\n') + `\n\nBạn có chắc chắn thông tin nhập vào là chính xác và vẫn muốn lưu?`;
+                const userConfirmed = await showCustomConfirm(finalMsg);
+                if (!userConfirmed) return;
+            }
+        }
           // 🚀 Tự động gắn dấu Trừ (-) nếu là khoản Chi
           let finalAmountToSave = amountInVND;
           if (!isGain) {
