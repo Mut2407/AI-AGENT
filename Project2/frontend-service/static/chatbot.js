@@ -243,7 +243,7 @@ window.sendChatMessage = async function() {
                 }
             }
 
-            if (["save", "update", "create_jar", "delete_jar", "jar_transfer"].includes(data.action)) {
+            if (["save", "update", "create_jar", "delete_jar", "jar_transfer", "set_budget", "delete_budget"].includes(data.action)) {
                 if (typeof loadPlanningData === 'function') {
                     await loadPlanningData();
                 }
