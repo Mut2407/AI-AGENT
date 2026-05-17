@@ -408,6 +408,10 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
        - "jar_transfer": NẠP/RÚT/CHUYỂN tiền giữa các hũ.
        - "chat": Trò chuyện bình thường, giải đáp thắc mắc.
 
+    🚨 QUY TẮC XỬ LÝ NGỮ CẢNH & THỜI GIAN (CONTEXT HANDLING):
+    1. KẾ THỪA MỐC THỜI GIAN: Nếu câu hỏi của khách hàng mập mờ, thiếu mốc thời gian cụ thể (VD: "còn khoản nào", "tiếp theo", "vậy còn..."), bạn PHẢI tự động sử dụng mốc thời gian gần nhất mà bạn vừa nhắc đến trong lịch sử trò chuyện.
+    2. CHỦ ĐỘNG ĐỀ XUẤT (PROACTIVE): Nếu khách hỏi dữ liệu của một thời điểm (VD: Tháng 4) nhưng không có kết quả, MÀ bạn thấy trong dữ liệu có giao dịch ở thời điểm lân cận (VD: Tháng 5), hãy TỰ ĐỘNG liệt kê/đề xuất dữ liệu lân cận đó ra để hỗ trợ khách hàng. KHÔNG thụ động đợi khách phải hỏi lại chính xác tháng.
+       
     CẤU TRÚC JSON PHẢI TRẢ VỀ:
     {{
         "reply": "Câu trả lời của bạn",
