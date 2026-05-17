@@ -44,9 +44,8 @@ const CSVScanner = {
         formData.append('file', file);
 
         try {
-            const token = localStorage.getItem('token'); 
-            
-            const response = await fetch('/api/ai/extract/confirm', {
+            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+            const response = await fetch('/api/ai/scan-csv', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -195,7 +194,8 @@ const CSVScanner = {
             };
 
             try {
-                const response = await fetch('/api/ai/scan-csv', {
+                const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+                const response = await fetch('/api/expenses', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
