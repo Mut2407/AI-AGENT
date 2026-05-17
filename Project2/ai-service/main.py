@@ -412,6 +412,8 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
          + Khi và chỉ khi người dùng chat lại xác nhận (VD: "chắc chắn", "đồng ý", "cứ xóa đi"), bạn mới được phép gọi action "delete_jar".
        - "jar_transfer": NẠP/RÚT/CHUYỂN tiền giữa các hũ.
        - "chat": Trò chuyện bình thường, giải đáp thắc mắc.
+       - "set_budget": Thiết lập hoặc cập nhật hạn mức ngân sách. 🚨 LƯU Ý TỐI QUAN TRỌNG: Bạn BẮT BUỘC phải xuất ra khối "budget_data" chứa "category" và "limit_amount". Nếu không có khối này, hệ thống sẽ bị sập!
+       - "delete_budget": Xóa ngân sách. 🚨 BẮT BUỘC phải xuất ra khối "budget_data" với "limit_amount" bằng 0.
 
     🚨 QUY TẮC XỬ LÝ NGỮ CẢNH & THỜI GIAN (CONTEXT HANDLING):
     1. KẾ THỪA MỐC THỜI GIAN: Nếu câu hỏi của khách hàng mập mờ, thiếu mốc thời gian cụ thể (VD: "còn khoản nào", "tiếp theo", "vậy còn..."), bạn PHẢI tự động sử dụng mốc thời gian gần nhất mà bạn vừa nhắc đến trong lịch sử trò chuyện.
@@ -420,7 +422,7 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
     CẤU TRÚC JSON PHẢI TRẢ VỀ:
     {{
         "reply": "Câu trả lời của bạn",
-        "action": "chat" | "save" | "update" | "update_profile" | "create_jar" | "delete_jar" | "jar_transfer",
+        "action": "chat" | "save" | "update" | "update_profile" | "create_jar" | "delete_jar" | "jar_transfer" | "set_budget" | "delete_budget",
         "transaction_id": "Mã ID của giao dịch cần sửa (CHỈ CÓ KHI action là update)" | null,
         "data": [
             {{ 
@@ -436,6 +438,10 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
             "name": "Tên hũ", "target_name": "Tên hũ nhận", "goal_amount": Số,
             "type": "deposit" | "withdraw" | "internal" | null, "amount": Số 
         }} | null
+        "budget_data": {{ 
+            "category": "Tên danh mục hợp lệ", 
+            "limit_amount": Số tiền 
+        }},
     }}
     
     🚨 LUẬT BẢO MẬT HỆ THỐNG (TUYỆT ĐỐI TUÂN THỦ):
@@ -558,7 +564,36 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
         
     elif final_action == "delete_jar" and result_json.get("jar_data"):
         services.delete_jar_by_name(username, result_json["jar_data"].get("name", ""))
+    
+    elif final_action in ["set_budget", "delete_budget"]:
+        b_data = result_json.get("budget_data")
         
+        if not b_data:
+            temp = result_json.get("data")
+            if isinstance(temp, list) and len(temp) > 0:
+                b_data = temp[0]
+            elif isinstance(temp, dict):
+                b_data = temp
+        
+        if b_data:
+            cat = b_data.get("category", "Khác")
+            if final_action == "delete_budget":
+                limit_amt = 0 
+            else:
+                limit_amt = float(b_data.get("limit_amount", b_data.get("amount", 0))) * req.rate
+                
+            payload = {
+                "category": cat,
+                "limit_amount": limit_amt
+            }
+            try:
+                services.set_budget(username, payload)
+            except Exception as e:
+                error_msg = str(e.detail) if hasattr(e, 'detail') else str(e)
+                result_json["reply"] = result_json.get("reply", "") + f"\n\n❌ Lỗi hệ thống: {error_msg}"
+        else:
+            result_json["reply"] = result_json.get("reply", "") + f"\n\n❌ Lỗi hệ thống: Cú Mèo không xuất ra được dữ liệu (JSON bị trống)."
+
     elif final_action == "update_profile" and result_json.get("profile_update"):
         p_update = result_json["profile_update"]
         services.update_user_profile(db_user_id, p_update.get("financial_goal"), p_update.get("risk_tolerance"))

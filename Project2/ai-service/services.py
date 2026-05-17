@@ -130,3 +130,27 @@ def delete_jar_by_name(user_id: int, jar_name: str):
     except Exception as e:
         print("Lỗi xóa hũ:", e)
     return False
+
+def set_budget(user_id: str, budget_data: dict):
+    try:
+        payload = {
+            "category": budget_data.get("category", "Khác"),
+            "limit_amount": float(budget_data.get("limit_amount", 0)),
+            "period_type": "month"
+        }
+        res = requests.post(
+            f"{BUDGET_SERVICE_URL}/api/planning/internal/budgets",
+            json=payload,
+            headers=get_headers(user_id)
+        )
+        if res.status_code in (200, 201):
+            return True
+        
+        error_detail = res.text
+        try:
+            error_detail = res.json().get("detail", res.text)
+        except:
+            pass
+        raise HTTPException(status_code=res.status_code, detail=str(error_detail))
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Budget Service không phản hồi: {str(e)}")

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import requests
 import os
 from urllib import response
+import calendar
 
 # Giả định auth.py chứa hàm giải mã JWT thành dictionary current_user
 from auth import get_current_user 
@@ -206,8 +207,8 @@ def get_current_budgets(db: Session = Depends(get_db), current_user: dict = Depe
             "limit_amount": float(b.limit_amount or 0.0),
             "spent_amount": float(b.spent_amount or 0.0),
             "period_type": b.period_type,
-            "start_date": b.start_date.isoformat(),
-            "end_date": b.end_date.isoformat()
+            "start_date": b.start_date.isoformat() if b.start_date else "",
+            "end_date": b.end_date.isoformat() if b.end_date else ""
         })
     
     return {
@@ -243,10 +244,10 @@ def get_budgets(start_date: str, end_date: str, period_type: str, db: Session = 
             "id": b.id,
             "category": b.category,
             "limit_amount": float(b.limit_amount),
-            "spent_amount": float(b.spent_amount), # Đọc trực tiếp từ DB của Budget 
+            "spent_amount": float(b.spent_amount),
             "period_type": b.period_type,
-            "start_date": b.start_date.isoformat(),
-            "end_date": b.end_date.isoformat()
+            "start_date": b.start_date.isoformat() if b.start_date else "",
+            "end_date": b.end_date.isoformat() if b.end_date else ""
         })
     return result
 def calculate_spent_amount(user_id, category, start, end, token):
@@ -535,5 +536,45 @@ def internal_delete_jar(jar_id: int, db: Session = Depends(get_db), uid: str = D
 
 @router.post("/internal/jars/transfer")
 def internal_transfer_jar(payload: TransferPayload, db: Session = Depends(get_db), uid: str = Depends(get_internal_uid)):
-    # Tái sử dụng hàm transfer_jar sẵn có ở phía trên
     return transfer_jar(payload, db, current_user={"id": uid, "token": "internal_bypass"})
+
+@router.post("/internal/budgets")
+def internal_set_budget(payload: dict = Body(...), db: Session = Depends(get_db), uid: str = Depends(get_internal_uid)):
+    category = payload.get("category", "Khác")
+    limit_amount = float(payload.get("limit_amount", 0))
+    
+    now = datetime.now()
+    start_dt = datetime(now.year, now.month, 1).date()
+    _, last_day = calendar.monthrange(now.year, now.month)
+    end_dt = datetime(now.year, now.month, last_day).date()
+    
+    existing = db.query(models.Budget).filter(
+        models.Budget.user_id == uid,
+        models.Budget.category == category,
+        models.Budget.start_date == start_dt,
+        models.Budget.period_type == "month"
+    ).first()
+    
+    if limit_amount <= 0:
+        if existing:
+            db.delete(existing)
+            db.commit()
+        return {"status": "success", "action": "deleted"}
+    
+    if existing:
+        existing.limit_amount = limit_amount
+        existing.end_date = end_dt
+    else:
+        new_budget = models.Budget(
+            category=category,
+            limit_amount=limit_amount,
+            spent_amount=0,
+            period_type="month",
+            start_date=start_dt,
+            end_date=end_dt,
+            user_id=uid
+        )
+        db.add(new_budget)
+        
+    db.commit()
+    return {"status": "success"}
