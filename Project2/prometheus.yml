@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s # Cứ 15s đi gom dữ liệu 1 lần
+
+scrape_configs:
+  - job_name: 'expenseowl_services'
+    static_configs:
+      - targets: 
+        # Thay bằng tên container FastAPI của em trong docker-compose
+        - 'user-service:8000'
+        - 'transaction-service:8000'
+        - 'ai-service:8000'

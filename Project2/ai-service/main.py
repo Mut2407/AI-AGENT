@@ -5,6 +5,7 @@ import random
 import requests
 import re
 import base64
+from prometheus_fastapi_instrumentator import Instrumentator
 import io
 import traceback
 from datetime import datetime, timedelta
@@ -22,7 +23,7 @@ import services
 
 # 🚀 BƯỚC 1: KHỞI TẠO APP VÀ MIDDLEWARE NGAY TRÊN CÙNG
 app = FastAPI(title="ExpenseOwl AI Service")
-
+Instrumentator().instrument(app).expose(app)
 app.add_middleware(
     CORSMiddleware, 
     allow_origins=["*"], 

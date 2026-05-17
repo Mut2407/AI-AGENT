@@ -11,3 +11,4 @@ python-multipart
 httpx
 sqlalchemy==2.0.25
 passlib
+prometheus-fastapi-instrumentator
