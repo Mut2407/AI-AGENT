@@ -56,18 +56,3 @@ def test_user_token(client):
     if response.status_code != 200:
         raise ValueError(f"Không thể lấy Token. Lỗi API: {response.text}")
     return response.json()["access_token"]
-
-@pytest.fixture(scope="session", autouse=True)
-def cleanup_test_db():
-    """Fixture tự động chạy để dọn dẹp database ảo sau khi test xong"""
-    yield
-    db_file = "./test_user_service.db"
-    if os.path.exists(db_file):
-        # Đóng engine trước khi xóa 
-        engine.dispose() 
-        try:
-            os.remove(db_file)
-            print(f"\n[CLEANUP] Đã dọn dẹp và xóa file: {db_file}")
-        except PermissionError:
-            # Bỏ qua lỗi 
-            print(f"\n[CLEANUP] Bỏ qua xóa file do Windows đang lock. File sẽ được làm sạch tự động ở lần chạy tới.")

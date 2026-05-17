@@ -16,6 +16,8 @@ env/
 pgdata/
 *.dump
 *.sql.gz
+*.db
+*.sqlite
 
 # 4. Cấu hình cá nhân của phần mềm code (VS Code, PyCharm)
 .vscode/
