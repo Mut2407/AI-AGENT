@@ -1,15 +1,22 @@
-from fastapi import FastAPI, Depends, HTTPException, Request, APIRouter
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import os
 import json
 import time
 import random
 import requests
 import re
+import base64
+import io
+import traceback
 from datetime import datetime, timedelta
+
+from fastapi import Body, FastAPI, Depends, HTTPException, Request, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from PIL import Image
+import fitz  # PyMuPDF dùng cho file PDF
+import pandas as pd # Dùng cho file CSV
+
 import services
-from google import genai
 
 # 🚀 BƯỚC 1: KHỞI TẠO APP VÀ MIDDLEWARE NGAY TRÊN CÙNG
 app = FastAPI(title="ExpenseOwl AI Service")
@@ -19,61 +26,33 @@ app.add_middleware(
     allow_origins=["*"], 
     allow_credentials=True, 
     allow_methods=["*"], 
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # 🚀 BƯỚC 2: KHAI BÁO CÁC BIẾN MÔI TRƯỜNG 
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8000")
 TXN_SERVICE_URL = os.getenv("TXN_SERVICE_URL", "http://transaction-service:8000")
 
 # 🚀 BƯỚC 3: CÁC MODEL VÀ API CỦA EM
-class ExtractRequest(BaseModel):
-    text: str
-@app.post("/api/ai/extract")
-def extract_expense_info(request: ExtractRequest):
-    try:
-        # Khởi tạo AI (Tự động lấy key từ biến môi trường GEMINI_API_KEY)
-        client = genai.Client() 
-        
-        # 🚀 VIẾT PROMPT RA LỆNH CHO AI
-        prompt = f"""
-        Bạn là một trợ lý tài chính thông minh của ứng dụng ExpenseOwl. 
-        Hãy đọc nội dung hóa đơn/email sau và trích xuất thông tin.
-        Trích xuất và trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng sau, KHÔNG GIẢI THÍCH, KHÔNG MARKDOWN:
-        {{
-            "name": "Tên cửa hàng, dịch vụ hoặc món đồ (ngắn gọn, ví dụ: FOODY CORP)",
-            "amount": số_tiền_chính_xác_bằng_số (Luôn giữ nguyên con số gốc trên hóa đơn thành số dương. Tuyệt đối KHÔNG quy đổi tỷ giá. Ví dụ: '26,000 VND' thì trả về đúng số 26000),
-            "category": "Phân loại vào 1 trong các nhóm: Ăn uống, Mua sắm, Di chuyển, Hóa đơn, Khác",
-            "date": "Ngày giao dịch theo định dạng YYYY-MM-DD. (Ví dụ: 2026-05-05).",
-            "type": "Trả về chữ 'chi' (nếu nội dung là thanh toán, chuyển tiền đi, trừ tiền) HOẶC trả về chữ 'thu' (nếu nội dung là nhận tiền lương, được chuyển khoản tới)."
-        }}
-        
-        Nội dung:
-        {request.text}
-        """
-        
-        # Gọi Gemini xử lý
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        
-        # Làm sạch kết quả trả về để ép nó thành JSON thuần
-        raw_json = response.text.strip()
-        if raw_json.startswith("```json"):
-            raw_json = raw_json[7:-3].strip()
-        elif raw_json.startswith("```"):
-            raw_json = raw_json[3:-3].strip()
-            
-        result = json.loads(raw_json)
-        
-        # Trả cục JSON chuẩn về lại cho Transaction Service
-        return result
-        
-    except Exception as e:
-        print("Lỗi khi xử lý bằng Gemini:", e)
-        raise HTTPException(status_code=500, detail="AI không thể đọc được hóa đơn này")
-
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
+    currency: str = "vnd"
+    rate: float = 1.0
+    
+class SuggestionRequest(BaseModel):
+    month_window: int
+    goal_name: str
+    goal_amount: float
+    goal_months: int
+    currency: str
+    symbol: str
+    rate: float
+    
+# class ExtractRequest(BaseModel):
+#     text: str
+    
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8000")
 TXN_SERVICE_URL = os.getenv("TXN_SERVICE_URL", "http://transaction-service:8000")
 
@@ -89,23 +68,6 @@ def get_current_user(req: Request):
     except requests.exceptions.RequestException:
         raise HTTPException(status_code=500, detail="Lỗi liên lạc User Service.")
 
-
-
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
-
-class ChatRequest(BaseModel):
-    message: str
-    history: list = []
-    currency: str = "vnd"
-    rate: float = 1.0
-class SuggestionRequest(BaseModel):
-    month_window: int
-    goal_name: str
-    goal_amount: float
-    goal_months: int
-    currency: str
-    symbol: str
-    rate: float
 def get_random_api_key():
     keys_str = os.getenv("GEMINI_API_KEY", "")
     keys = [k.strip() for k in keys_str.split(",") if k.strip()]
@@ -133,6 +95,202 @@ def call_gemini_with_backoff(url, payload, headers=None, timeout=30, retries=3):
 def read_root():
     return {"status": "Cú Mèo AI Service đang hoạt động tốt! 🦉"}
 
+# Thêm API này để Frontend không bị báo lỗi 404 Not Found nữa
+@app.get("/api/users/config")
+def get_user_categories(current_user: dict = Depends(get_current_user)):
+    db_user_id = current_user.get("id")
+    user_config = services.get_user_config(db_user_id) or {}
+    
+    exp_cats = user_config.get("expenseCategories", ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"])
+    inc_cats = user_config.get("incomeCategories", ["Lương", "Thưởng", "Đầu tư", "Khác"])
+    
+    all_categories = exp_cats + inc_cats
+    return {"categories": all_categories}
+
+
+# ==========================================
+# API QUÉT HÓA ĐƠN BẰNG ẢNH 
+# ==========================================
+@app.post("/api/ai/extract")
+async def extract_expense_info(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    try:
+        api_key = get_random_api_key()
+        if not api_key: raise HTTPException(status_code=500, detail="Chưa cấu hình GEMINI_API_KEY")
+
+        # Đọc hình ảnh từ Frontend gửi lên
+        content = await file.read()
+        img = Image.open(io.BytesIO(content))
+        if img.mode in ("RGBA", "P"): img = img.convert("RGB")
+        img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+        
+        output_buffer = io.BytesIO()
+        img.save(output_buffer, format="JPEG", quality=85)
+        base64_image = base64.b64encode(output_buffer.getvalue()).decode("utf-8")
+
+        prompt = """Bạn là trợ lý tài chính. Trích xuất thông tin hóa đơn trong ảnh.
+        Trả về DUY NHẤT một chuỗi JSON hợp lệ, KHÔNG GIẢI THÍCH:
+        {
+            "name": "Tên cửa hàng/dịch vụ",
+            "amount": số tiền (luôn giữ số dương),
+            "category": "Ăn uống, Mua sắm, Di chuyển, Hóa đơn, Khác",
+            "date": "YYYY-MM-DD",
+            "type": "chi" hoặc "thu"
+        }"""
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt},
+                        {"inlineData": {"mimeType": "image/jpeg", "data": base64_image}}
+                    ]
+                }
+            ],
+            "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}
+        }
+
+        response = call_gemini_with_backoff(url, payload)
+        result_data = response.json()
+
+        if "candidates" not in result_data or len(result_data["candidates"]) == 0:
+            raise HTTPException(status_code=400, detail="Gemini từ chối phân tích ảnh.")
+            
+        ai_text = result_data["candidates"][0]["content"]["parts"][0].get("text", "")
+        match = re.search(r"\{.*\}", ai_text, re.DOTALL)
+        clean_text = match.group(0) if match else ai_text.strip()
+        
+        # Bọc kết quả vào "data" để Frontend (ocr_scanner.js) gọi result.data
+        return {"status": "success", "data": json.loads(clean_text)}
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# API QUÉT SAO KÊ PDF 
+# ==========================================
+@app.post("/api/ai/scan-pdf")
+async def scan_pdf_statement(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    try:
+        api_key = get_random_api_key()
+        if not api_key: raise HTTPException(status_code=500, detail="Chưa cấu hình API Key")
+
+        if file.content_type != "application/pdf":
+            raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file PDF!")
+
+        pdf_bytes = await file.read()
+        text_content = ""
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            for page in doc:
+                text_content += page.get_text() + "\n"
+
+        if not text_content.strip():
+            raise HTTPException(status_code=400, detail="PDF không có chữ để phân tích.")
+        text_content = text_content[:40000]
+
+        prompt = f"""Trích xuất giao dịch từ sao kê PDF. Trả về MẢNG JSON:
+        [
+            {{ "name": "...", "amount": số dương, "category": "Khác", "date": "YYYY-MM-DD", "type": "chi" }}
+        ]
+        Nội dung: {text_content}"""
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
+
+        response = call_gemini_with_backoff(url, payload)
+        result_data = response.json()
+
+        ai_text = result_data["candidates"][0]["content"]["parts"][0].get("text", "")
+        match = re.search(r"\[.*\]", ai_text, re.DOTALL)
+        clean_text = match.group(0) if match else ai_text.strip()
+        transactions = json.loads(clean_text)
+        if not isinstance(transactions, list): transactions = [transactions]
+        
+        return {"status": "success", "data": transactions}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# API QUÉT FILE CSV 
+# ==========================================
+@app.post("/api/ai/scan-csv")
+async def scan_csv_file(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    try:
+        api_key = get_random_api_key()
+        if not file.filename.lower().endswith(".csv"):
+            raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file .csv")
+
+        content = await file.read()
+        df = pd.read_csv(io.BytesIO(content))
+        df.dropna(how="all", inplace=True)
+        csv_text = df.head(50).to_csv(index=False)
+
+        prompt = f"""Trích xuất giao dịch từ CSV. Trả về MẢNG JSON:
+        [
+            {{ "name": "...", "amount": số dương, "category": "Khác", "date": "YYYY-MM-DD", "type": "chi" }}
+        ]
+        Nội dung: {csv_text}"""
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
+
+        response = call_gemini_with_backoff(url, payload)
+        result_data = response.json()
+
+        ai_text = result_data["candidates"][0]["content"]["parts"][0].get("text", "")
+        match = re.search(r"\[.*\]", ai_text, re.DOTALL)
+        clean_text = match.group(0) if match else ai_text.strip()
+        transactions = json.loads(clean_text)
+        if not isinstance(transactions, list): transactions = [transactions]
+        
+        return {"status": "success", "data": transactions}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    
+# ==========================================
+# API LƯU GIAO DỊCH VÀO DB 
+# ==========================================
+@app.post("/api/ai/extract/confirm")
+async def confirm_scan_receipt(transaction_data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    try:
+        amount = float(transaction_data.get("amount", 0))
+        if amount == 0:
+            raise HTTPException(status_code=400, detail="Số tiền không được bằng 0")
+
+        name = str(transaction_data.get("name", "Giao dịch")).strip()
+        category = str(transaction_data.get("category", "Khác")).strip()
+        date_str = str(transaction_data.get("date", "")).strip()
+
+        tags = transaction_data.get("tags", ["AI Scan"])
+        if not isinstance(tags, list): tags = ["AI Scan"]
+
+        # Xử lý tự động thành số ÂM nếu là "Chi tiêu"
+        if "Chi tiêu" in tags and amount > 0: amount = -amount
+        if "chi" in str(transaction_data.get("type", "")).lower() and amount > 0: amount = -amount
+
+        tx_payload = {
+            "name": name[:255] if name else "Giao dịch",
+            "amount": amount,
+            "category": category,
+            "date": date_str if date_str else datetime.now().strftime("%Y-%m-%d"),
+            "tags": tags,
+            "note": str(transaction_data.get("notes", "")).strip()
+        }
+        username = current_user.get("username")
+        saved_txn = services.save_transaction(username, tx_payload)
+
+        if not saved_txn: raise Exception("Transaction Service từ chối lưu")
+        return {"status": "success", "message": f"Đã lưu: {tx_payload['name']}", "transaction": saved_txn}
+    except Exception as e: 
+        raise HTTPException(status_code=500, detail=f"Lỗi lưu: {str(e)}")
+
+# ==========================================
+# API CHATBOX
+# ==========================================
 @app.post("/api/ai/chat")
 def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_user)):
     db_user_id = current_user.get("id")          
