@@ -258,8 +258,8 @@ async def confirm_scan_receipt(transaction_data: dict = Body(...), current_user:
         category = str(transaction_data.get("category", "Khác")).strip()
         date_str = str(transaction_data.get("date", "")).strip()
 
-        tags = transaction_data.get("tags", ["AI Scan"])
-        if not isinstance(tags, list): tags = ["AI Scan"]
+        tags = transaction_data.get("tags", ["OCR"])
+        if not isinstance(tags, list): tags = ["OCR"]
 
         if "Chi tiêu" in tags and amount > 0: amount = -amount
         if "chi" in str(transaction_data.get("type", "")).lower() and amount > 0: amount = -amount
