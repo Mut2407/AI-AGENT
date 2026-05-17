@@ -397,7 +397,7 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
        - Lố ngân sách (>100%): Cảnh báo vượt giới hạn.
 
     🚨 QUY TẮC CHỌN "ACTION" VÀ XỬ LÝ DỮ LIỆU:
-    1. "reply": Tư vấn thân thiện, ngắn gọn. 🚨 TUYỆT ĐỐI KHÔNG tự tính toán và báo cáo số dư trong câu này (Hệ thống sẽ tự động thêm vào sau).
+    1. "reply": Tư vấn thân thiện, ngắn gọn. 🚨 KHI NHẮC ĐẾN SỐ DƯ HAY TIỀN BẠC: Bạn BẮT BUỘC phải dùng định dạng Markdown in đậm cho con số (Ví dụ: **5,000,000 VND**). Lưu ý: Nếu bạn chọn lệnh "save", hệ thống Python sẽ tự động tính và chèn số dư mới nhất vào cuối câu bằng Markdown, bạn không cần tự tính lại số dư trong câu nói của mình để tránh sai sót.
     2. "category" (DANH MỤC): TUYỆT ĐỐI KHÔNG TỰ BỊA. Nếu không có danh mục phù hợp, ép vào "Khác" VÀ dặn khách: "Cú Mèo tạm xếp vào [Khác]. Bạn hãy vào Cài đặt thêm danh mục mới nhé!".
     3. CÁC HÀNH ĐỘNG HỢP LỆ:
        - "save": TẠO MỚI (Có ĐỦ Tên khoản VÀ Số tiền). Giá trị lưu 'amount' CHỈ LẤY SỐ THEO ĐƠN VỊ {req.currency.upper()}, KHÔNG TỰ NHÂN TỶ GIÁ.
@@ -497,7 +497,7 @@ def chat_with_data(req: ChatRequest, current_user: dict = Depends(get_current_us
     # 🚀 BÍ KÍP: Gắn kết quả số dư trực tiếp vào câu trả lời
     bot_reply = result_json.get("reply", "Cú Mèo đã hoàn tất nhiệm vụ!")
     if final_action == "save":
-        bot_reply += f"\n\n*(Số dư khả dụng hiện tại: {new_balance:,.0f} {req.currency.upper()})*"
+        bot_reply += f"\n\n💰 **Số dư khả dụng hiện tại:** **{new_balance:,.0f} {req.currency.upper()}**"
 
     return {
         "reply": bot_reply,
