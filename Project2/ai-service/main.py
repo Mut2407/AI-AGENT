@@ -121,12 +121,17 @@ async def extract_expense_info(file: UploadFile = File(...), current_user: dict 
         img.save(output_buffer, format="JPEG", quality=85)
         base64_image = base64.b64encode(output_buffer.getvalue()).decode("utf-8")
 
-        prompt = """Bạn là trợ lý tài chính. Trích xuất thông tin hóa đơn trong ảnh.
+        prompt = """Bạn là trợ lý tài chính. Trích xuất thông tin giao dịch trong ảnh.
+        QUY TẮC QUAN TRỌNG VỀ SỐ TIỀN (amount):
+        - Nếu là hóa đơn mua hàng, thanh toán, chuyển tiền ĐI (Chi tiêu) -> BẮT BUỘC biến 'amount' phải là SỐ ÂM (ví dụ: -50000).
+        - Nếu là biên lai nhận tiền, chuyển tiền ĐẾN (Thu nhập) -> Biến 'amount' là SỐ DƯƠNG (ví dụ: 50000).
+        - Trả về số nguyên hoặc số thực, KHÔNG chứa dấu phẩy/chấm phân cách hàng nghìn.
+
         Trả về DUY NHẤT một chuỗi JSON hợp lệ, KHÔNG GIẢI THÍCH:
         {
-            "name": "Tên cửa hàng/dịch vụ",
-            "amount": số tiền (luôn giữ số dương),
-            "category": "Ăn uống, Mua sắm, Di chuyển, Hóa đơn, Khác",
+            "name": "Tên cửa hàng/người nhận/người gửi",
+            "amount": -50000,
+            "category": "Ăn uống, Mua sắm, Di chuyển, Hóa đơn, Lương, Khác",
             "date": "YYYY-MM-DD",
             "type": "chi" hoặc "thu"
         }"""
@@ -183,9 +188,15 @@ async def scan_pdf_statement(file: UploadFile = File(...), current_user: dict = 
             raise HTTPException(status_code=400, detail="PDF không có chữ để phân tích.")
         text_content = text_content[:40000]
 
-        prompt = f"""Trích xuất giao dịch từ sao kê PDF. Trả về MẢNG JSON:
+        prompt = f"""Trích xuất danh sách giao dịch từ nội dung PDF sao kê/biên lai sau. 
+        QUY TẮC QUAN TRỌNG VỀ SỐ TIỀN (amount):
+        - Giao dịch GHI NỢ, chuyển tiền ĐI, thanh toán, trừ phí (Chi tiêu) -> BẮT BUỘC 'amount' là SỐ ÂM (ví dụ: -100000).
+        - Giao dịch GHI CÓ, nhận tiền, lương, hoàn tiền (Thu nhập) -> BẮT BUỘC 'amount' là SỐ DƯƠNG (ví dụ: 100000).
+        - Trả về số, KHÔNG chứa dấu phẩy/chấm phân cách.
+
+        Trả về MẢNG JSON, KHÔNG BÌNH LUẬN GÌ THÊM:
         [
-            {{ "name": "...", "amount": số dương, "category": "Khác", "date": "YYYY-MM-DD", "type": "chi" }}
+            {{ "name": "Tên giao dịch/Người nhận/Gửi", "amount": -100000, "category": "Khác", "date": "YYYY-MM-DD", "type": "chi" }}
         ]
         Nội dung: {text_content}"""
 
@@ -221,9 +232,15 @@ async def scan_csv_file(file: UploadFile = File(...), current_user: dict = Depen
         df.dropna(how="all", inplace=True)
         csv_text = df.head(50).to_csv(index=False)
 
-        prompt = f"""Trích xuất giao dịch từ CSV. Trả về MẢNG JSON:
+        prompt = f"""Trích xuất danh sách giao dịch từ nội dung CSV sao kê ngân hàng sau. 
+        QUY TẮC QUAN TRỌNG VỀ SỐ TIỀN (amount):
+        - Giao dịch GHI NỢ, chuyển tiền ĐI, thanh toán, trừ phí (Chi tiêu) -> BẮT BUỘC 'amount' là SỐ ÂM (ví dụ: -100000).
+        - Giao dịch GHI CÓ, nhận tiền, lương, hoàn tiền (Thu nhập) -> BẮT BUỘC 'amount' là SỐ DƯƠNG (ví dụ: 100000).
+        - Trả về số, KHÔNG chứa dấu phẩy/chấm phân cách.
+
+        Trả về MẢNG JSON, KHÔNG BÌNH LUẬN GÌ THÊM:
         [
-            {{ "name": "...", "amount": số dương, "category": "Khác", "date": "YYYY-MM-DD", "type": "chi" }}
+            {{ "name": "Tên giao dịch/Người nhận/Gửi", "amount": -100000, "category": "Khác", "date": "YYYY-MM-DD", "type": "chi" }}
         ]
         Nội dung: {csv_text}"""
 
