@@ -1,0 +1,95 @@
+name: CI/CD Pipeline for ExpenseOwl Agentic AI Project
+
+# ==============================================================================
+# 1. ĐIỀU KIỆN KÍCH HOẠT (TRIGGERS)
+# ==============================================================================
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'Project2/**' # Chỉ chạy với project 2
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'Project2/**'
+
+jobs:
+  # ==============================================================================
+  # CI: TỰ ĐỘNG CHẠY KIỂM THỬ (TESTING STAGE)
+  # ==============================================================================
+  continuous-integration:
+    name: Run Pytest for Python Services
+    runs-on: ubuntu-latest
+    
+    strategy:
+      # Chạy song song (Parallel) các bài test của các dịch vụ để tiết kiệm thời gian
+      matrix:
+        service: [user-service, transaction-service, ai-service, budget-service]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python Môi trường
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip' # Tự động cache các thư viện để tăng tốc các lần chạy sau
+
+    - name: Install Dependencies
+      run: |
+        python -m pip upgrade pip
+        # Kiểm tra xem dịch vụ có file requirements.txt không, nếu có thì cài đặt
+        if [ -f Project2/${{ matrix.service }}/requirements.txt ]; then
+          pip install -r Project2/${{ matrix.service }}/requirements.txt
+        fi
+        # Đảm bảo có thư viện hỗ trợ kiểm thử
+        pip install pytest httpx pytest-mock
+
+    - name: Execute Automated Tests
+      run: |
+        cd Project2/${{ matrix.service }}
+        # Nếu thư mục tests tồn tại thì tiến hành chạy test bằng pytest
+        if [ -d "tests" ]; then
+          pytest -v
+        else
+          echo "Không tìm thấy thư mục tests/ trong dịch vụ ${{ matrix.service }}. Bỏ qua bước này."
+        fi
+
+  # ==============================================================================
+  # CD: ĐÓNG GÓI VÀ ĐẨY LÊN DOCKER HUB (DEPLOYMENT STAGE)
+  # ==============================================================================
+  continuous-deployment:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    # Giai đoạn CD chỉ được phép chạy khi toàn bộ các bài test ở giai đoạn CI vượt qua (PASSED)
+    needs: continuous-integration
+    if: github.event_name == 'push' # Chỉ build/push khi thực hiện lệnh push/merge thật sự, không chạy trên Pull Request
+    
+    strategy:
+      matrix:
+        # Danh sách các dịch vụ cần đóng gói Docker image
+        service: [user-service, transaction-service, ai-service, budget-service, api-gateway, frontend-service]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3   
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./Project2/${{ matrix.service }}
+        file: ./Project2/${{ matrix.service }}/Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/expenseowl-${{ matrix.service }}:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/expenseowl-${{ matrix.service }}:${{ github.sha }}
