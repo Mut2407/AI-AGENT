@@ -1,93 +1,160 @@
-name: CI/CD Pipeline for ExpenseOwl Agentic AI Project
+name: ExpenseOwl Microservices CI/CD Pipeline
 
-# ==============================================================================
-# 1. ĐIỀU KIỆN KÍCH HOẠT (TRIGGERS)
-# ==============================================================================
+# ==========================================================
+# TRIGGERS
+# ==========================================================
 on:
   push:
-    branches: [ "main" ]
-    paths:
-      - 'Project2/**' # Chỉ chạy với project 2
+    branches:
+      - main
+
   pull_request:
-    branches: [ "main" ]
-    paths:
-      - 'Project2/**'
+    branches:
+      - main
+
+# ==========================================================
+# ENVIRONMENT VARIABLES
+# ==========================================================
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
-  # ==============================================================================
-  # CI: TỰ ĐỘNG CHẠY KIỂM THỬ (TESTING STAGE)
-  # ==============================================================================
+
+# ==========================================================
+# CI - RUN AUTOMATED TESTS
+# ==========================================================
   continuous-integration:
-    name: Run Pytest for Python Services
+    name: CI - Test Python Services
     runs-on: ubuntu-latest
-    
+
     strategy:
-      # Chạy song song (Parallel) các bài test của các dịch vụ để tiết kiệm thời gian
+      fail-fast: false
       matrix:
-        service: [user-service, transaction-service, ai-service, budget-service]
+        service:
+          - user-service
+          - transaction-service
+          - budget-service
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      
+      # ------------------------------------------------------
+      # Checkout source code
+      # ------------------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python Môi trường
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-        cache: 'pip' # Tự động cache các thư viện để tăng tốc các lần chạy sau
+      # ------------------------------------------------------
+      # Setup Python
+      # ------------------------------------------------------
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
 
-    - name: Install Dependencies
-      run: |
-        python -m pip install --upgrade pip    # <--- Cú pháp đúng chuẩn
-        if [ -f Project2/${{ matrix.service }}/requirements.txt ]; then
-          pip install -r Project2/${{ matrix.service }}/requirements.txt
-        fi
-        pip install pytest httpx pytest-mock
+      # ------------------------------------------------------
+      # Install dependencies
+      # ------------------------------------------------------
+      - name: Install Dependencies
+        working-directory: ./Project2/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
 
-    - name: Execute Automated Tests
-      run: |
-        cd Project2/${{ matrix.service }}
-        # Nếu thư mục tests tồn tại thì tiến hành chạy test bằng pytest
-        if [ -d "tests" ]; then
-          pytest -v
-        else
-          echo "Không tìm thấy thư mục tests/ trong dịch vụ ${{ matrix.service }}. Bỏ qua bước này."
-        fi
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
 
-  # ==============================================================================
-  # CD: ĐÓNG GÓI VÀ ĐẨY LÊN DOCKER HUB (DEPLOYMENT STAGE)
-  # ==============================================================================
+          pip install pytest pytest-mock httpx
+          
+      # ------------------------------------------------------
+      # Run Pytest
+      # ------------------------------------------------------  
+      - name: Run Pytest
+        working-directory: ./Project2/${{ matrix.service }}
+        env:
+          PYTHONPATH: .
+        run: |
+          if [ -d "app/tests" ]; then
+            pytest app/tests -v -s --tb=short
+          else
+            echo "No tests folder found in ${{ matrix.service }}"
+          fi
+
+# ==========================================================
+# CD - BUILD & PUSH DOCKER IMAGES
+# ==========================================================
   continuous-deployment:
-    name: Build & Push Docker Images
+    name: CD - Build & Push Docker Images
     runs-on: ubuntu-latest
-    # Giai đoạn CD chỉ được phép chạy khi toàn bộ các bài test ở giai đoạn CI vượt qua (PASSED)
+
     needs: continuous-integration
-    if: github.event_name == 'push' # Chỉ build/push khi thực hiện lệnh push/merge thật sự, không chạy trên Pull Request
-    
+
+    # Chỉ push image khi push thật lên main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     strategy:
+      fail-fast: false
       matrix:
-        # Danh sách các service cần đóng gói Docker image
-        service: [user-service, transaction-service, ai-service, budget-service, api-gateway, frontend-service]
+        service:
+          - user-service
+          - transaction-service
+          - budget-service
+          - ai-service
+          - notification-service
+          - api-gateway
+          - frontend-service
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3   
+      # ------------------------------------------------------
+      # Checkout source code
+      # ------------------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # ------------------------------------------------------
+      # Setup Docker Buildx
+      # ------------------------------------------------------
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Build and Push Docker Image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./Project2/${{ matrix.service }}
-        file: ./Project2/${{ matrix.service }}/Dockerfile
-        push: true
-        tags: |
-          ${{ secrets.DOCKERHUB_USERNAME }}/expenseowl-${{ matrix.service }}:latest
-          ${{ secrets.DOCKERHUB_USERNAME }}/expenseowl-${{ matrix.service }}:${{ github.sha }}
+      # ------------------------------------------------------
+      # Login Docker Hub
+      # ------------------------------------------------------
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ------------------------------------------------------
+      # Extract metadata
+      # ------------------------------------------------------
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/expenseowl-${{ matrix.service }}
+
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      # ------------------------------------------------------
+      # Build and Push Docker Image
+      # ------------------------------------------------------
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Project2/${{ matrix.service }}
+          file: ./Project2/${{ matrix.service }}/Dockerfile
+
+          push: true
+
+          tags: ${{ steps.meta.outputs.tags }}
+
+          labels: ${{ steps.meta.outputs.labels }}
+
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
