@@ -197,7 +197,7 @@
                 try {
                     let successCount = 0;
                     for (const data of finalData) {
-                        const response = await fetch('/api/ai/scan-receipt/confirm', {
+                        const response = await fetch('/api/ai/extract/confirm', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(data)

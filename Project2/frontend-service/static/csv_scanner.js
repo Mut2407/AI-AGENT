@@ -46,7 +46,7 @@ const CSVScanner = {
         try {
             const token = localStorage.getItem('token'); 
             
-            const response = await fetch('/api/expenses/scan-csv', {
+            const response = await fetch('/api/ai/extract/confirm', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -195,7 +195,7 @@ const CSVScanner = {
             };
 
             try {
-                const response = await fetch('/api/expenses/', {
+                const response = await fetch('/api/ai/scan-csv', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

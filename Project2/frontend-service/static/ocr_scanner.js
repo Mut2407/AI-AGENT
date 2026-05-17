@@ -297,15 +297,40 @@
             document.getElementById('ocrModal').style.display = 'flex';
 
             try {
-                const res = await fetch('/api/config');
+                // 1. Lấy Token từ trình duyệt để chứng minh đã đăng nhập
+                const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+                
+                // 2. Gọi API kèm Header chứa Token 
+                const res = await fetch('/api/users/config', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!res.ok) throw new Error("API trả về lỗi " + res.status);
+
                 const config = await res.json();
-                this._categories = config.categories?.length 
-                ? config.categories 
-                : ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment',];
+                
+                // 3. Xử lý danh mục, nếu trống thì dùng danh sách Tiếng Việt mặc định
+                this._categories = (config.categories && config.categories.length > 0)
+                    ? config.categories 
+                    : ['Ăn uống', 'Mua sắm', 'Di chuyển', 'Hóa đơn', 'Khác'];
+                
+                // 4. Nhét vào giao diện
                 const sel = document.getElementById('ocrResultCategory');
-                sel.innerHTML = this._categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                if (sel) {
+                    sel.innerHTML = this._categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                }
             } catch (e) {
-                console.error('OCRScanner: không load được config', e);
+                console.warn('OCRScanner: Dùng danh mục mặc định do không load được config -', e.message);
+                
+                // Nếu lỗi mạng/404, vẫn phải có danh sách mặc định để form không bị trống
+                this._categories = ['Ăn uống', 'Mua sắm', 'Di chuyển', 'Hóa đơn', 'Khác'];
+                const sel = document.getElementById('ocrResultCategory');
+                if (sel) {
+                    sel.innerHTML = this._categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                }
             }
         },
 
@@ -417,11 +442,13 @@
 
                 if (!response.ok) {
                     let errMsg = 'Lỗi hệ thống';
+                    const errorText = await response.text(); // Đọc luồng dữ liệu 1 lần duy nhất
+                    
                     try {
-                        const err = await response.json();
+                        const err = JSON.parse(errorText); // Cố ép sang JSON xem có được không
                         errMsg = err.detail || err.message || errMsg;
                     } catch (e) {
-                        errMsg = await response.text();
+                        errMsg = errorText || errMsg; // Nếu là Text/HTML thì lấy luôn thông báo lỗi
                     }
                     throw new Error(errMsg);
                 }
