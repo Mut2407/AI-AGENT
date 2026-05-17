@@ -308,7 +308,6 @@
         function toggleEditMode() {
             document.getElementById('displayFullName').style.display = 'none';
             document.getElementById('editFullName').style.display = 'block';
-            // Đảm bảo không bị undefined
             document.getElementById('editFullName').value = currentUserData.full_name || '';
 
             document.getElementById('displayDob').style.display = 'none';
@@ -318,13 +317,18 @@
             document.getElementById('displayGender').style.display = 'none';
             document.getElementById('editGender').style.display = 'inline-block';
             
+            // 🚀 BÍ KÍP ĐỒNG BỘ GIỚI TÍNH LÊN DROPDOWN XỔ XUỐNG
             let currentGender = currentUserData.gender || '';
+            
+            // Nếu dữ liệu trong DB là tiếng Anh (tài khoản cũ), ta dịch sang tiếng Việt 
+            // để khớp CHÍNH XÁC với thuộc tính value="..." của các thẻ <option>
             if (currentGender === 'male') currentGender = 'Nam';
             if (currentGender === 'female') currentGender = 'Nữ';
             if (currentGender === 'other') currentGender = 'Khác';
             if (currentGender === 'secret') currentGender = 'Bảo mật';
             
-            // 🚀 ĐÃ SỬA: Gán bằng biến currentGender đã được dịch
+            // Gán giá trị đã chuẩn hóa vào ô select. 
+            // Trình duyệt sẽ tự động tìm option có value tương ứng và hiển thị lên!
             document.getElementById('editGender').value = currentGender; 
 
             document.getElementById('viewActions').style.display = 'none';
