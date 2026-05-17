@@ -12,3 +12,6 @@ httpx
 sqlalchemy==2.0.25
 passlib
 prometheus-fastapi-instrumentator
+PyJWT
+pytest
+pytest-asyncio
