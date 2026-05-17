@@ -38,12 +38,10 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        python -m pip upgrade pip
-        # Kiểm tra xem dịch vụ có file requirements.txt không, nếu có thì cài đặt
+        python -m pip install --upgrade pip    # <--- Cú pháp đúng chuẩn
         if [ -f Project2/${{ matrix.service }}/requirements.txt ]; then
           pip install -r Project2/${{ matrix.service }}/requirements.txt
         fi
-        # Đảm bảo có thư viện hỗ trợ kiểm thử
         pip install pytest httpx pytest-mock
 
     - name: Execute Automated Tests
