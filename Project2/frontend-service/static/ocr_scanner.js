@@ -433,8 +433,12 @@
                 const formData = new FormData();
                 formData.append('file', this._selectedFile);
 
+                const token = localStorage.getItem('access_token') || localStorage.getItem('token');
                 const response = await fetch('/api/ai/extract', {
                     method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}` 
+                    },
                     body: formData
                 });
 
