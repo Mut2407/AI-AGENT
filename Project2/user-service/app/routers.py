@@ -62,50 +62,43 @@ class ProfileUpdate(BaseModel):
     goal: str
     risk: str
 
+# Mở file: Project2/user-service/app/routers.py
+# Tìm và thay thế toàn bộ hàm này:
+
 @router.get("/config")
 @router.get("/config/")
 def get_user_config(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     config = db.query(models.UserConfig).filter(models.UserConfig.user_id == current_user.id).first()
-    is_newly_created = False
 
     if not config:
         config = models.UserConfig(user_id=current_user.id)
         db.add(config)
         db.commit()
         db.refresh(config)
-        is_newly_created = True 
-    
-    cats = config.categories if config.categories else {}
+
+    # 1. Lấy dữ liệu danh mục hiện tại
+    cats = config.categories if config.categories else []
     if isinstance(cats, str):
         try:
             cats = json.loads(cats.replace("'", '"'))
         except Exception:
-            cats = {}
-    exp_cats = cats.get("expenseCategories") if isinstance(cats, dict) else None
-    inc_cats = cats.get("incomeCategories") if isinstance(cats, dict) else None
-    
-    if isinstance(cats, list): 
-        exp_cats = cats
-    
-    is_new = getattr(config, 'is_new_user', is_newly_created)
-    if not exp_cats:
-        is_new = True
+            cats = []
 
-    english_words = ["Bill", "Bills", "Food", "Transport", "Shopping", "Entertainment", "Other", "Khác"]
-    has_english = any(word in (exp_cats or []) for word in english_words)
+    # 🚀 2. BÍ KÍP NHẬN DIỆN NEW USER: 
+    # Nếu cats là một MẢNG (List), chắc chắn 100% đây là tài khoản mới tinh chưa qua Setup!
+    is_new = isinstance(cats, list)
 
-    if has_english and not is_new:
+    if is_new:
+        # Gán lại danh mục chuẩn tiếng Việt cho Frontend hiển thị
         exp_cats = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"]
         inc_cats = ["Lương", "Thưởng", "Đầu tư", "Khác"]
-        config.categories = {"expenseCategories": exp_cats, "incomeCategories": inc_cats}
-        flag_modified(config, "categories")
-        db.commit()
-    elif is_new:
-        exp_cats = ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"]
-        inc_cats = ["Lương", "Thưởng", "Đầu tư", "Khác"]
+    else:
+        # Khách cũ thì moi dữ liệu từ trong Dict ra
+        exp_cats = cats.get("expenseCategories", ["Ăn uống", "Đi lại", "Mua sắm", "Hóa đơn", "Giải trí"])
+        inc_cats = cats.get("incomeCategories", ["Lương", "Thưởng", "Đầu tư", "Khác"])
 
     return {
-        "is_new_user": is_new,
+        "is_new_user": is_new, # 🚀 Báo chuẩn xác cho Frontend mở bảng Setup
         "expenseCategories": exp_cats,
         "incomeCategories": inc_cats,
         "currency": getattr(config, 'currency', 'vnd'),
