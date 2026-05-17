@@ -6,7 +6,7 @@
 Kho lưu trữ (Monorepo) này chứa các dự án nghiên cứu và phát triển phần mềm ứng dụng **Agentic AI** thông minh kết hợp với kiến trúc hệ thống phân tán, DevOps chuyên sâu, phục vụ bài toán tối ưu hóa quy trình tự động và quản lý tài chính cá nhân.
 ---
 
-## 📂 Cấu trúc Toàn bộ Kho lưu trữ (Monorepo Strategy)
+## 📂 Cấu trúc Toàn bộ Kho lưu trữ 
 
 ```text
 AI-AGENT/
@@ -34,7 +34,7 @@ AI-AGENT/
     └── frontend-service/        
 ---  
 ```
-## 🧪 Hệ thống Kiểm thử Tự động hóa (Automated Testing Strategy)
+## 🧪 Hệ thống Kiểm thử Tự động hóa 
 
 Dự án áp dụng mô hình kiểm thử cô lập chuyên sâu cho từng phân hệ Microservice dựa trên bộ ba công cụ: **Pytest**, **FastAPI TestClient** và chiến lược **Advanced Mocking** (Giả lập thành phần phụ thuộc). Toàn bộ dữ liệu kiểm thử được đồng bộ hóa và bao phủ (Test Coverage) dựa trên các tiêu chí kiểm thử thành phần, kiểm thử tích hợp và kiểm thử hệ thống.
 
