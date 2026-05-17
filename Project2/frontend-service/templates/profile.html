@@ -306,7 +306,15 @@
 
             document.getElementById('displayGender').style.display = 'none';
             document.getElementById('editGender').style.display = 'inline-block';
-            document.getElementById('editGender').value = currentUserData.gender || ''; 
+            
+            let currentGender = currentUserData.gender || '';
+            if (currentGender === 'male') currentGender = 'Nam';
+            if (currentGender === 'female') currentGender = 'Nữ';
+            if (currentGender === 'other') currentGender = 'Khác';
+            if (currentGender === 'secret') currentGender = 'Bảo mật';
+            
+            // 🚀 ĐÃ SỬA: Gán bằng biến currentGender đã được dịch
+            document.getElementById('editGender').value = currentGender; 
 
             document.getElementById('viewActions').style.display = 'none';
             document.getElementById('editActions').style.display = 'flex';
