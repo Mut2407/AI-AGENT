@@ -68,7 +68,7 @@ jobs:
     
     strategy:
       matrix:
-        # Danh sách các dịch vụ cần đóng gói Docker image
+        # Danh sách các service cần đóng gói Docker image
         service: [user-service, transaction-service, ai-service, budget-service, api-gateway, frontend-service]
 
     steps:
