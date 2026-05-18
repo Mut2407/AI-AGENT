@@ -29,7 +29,7 @@ Dự án phát triển qua các giai đoạn, từ mô hình **Monolithic (Proje
     * **Cơ sở dữ liệu:** **PostgreSQL** được phân chia độc lập cho từng dịch vụ để đảm bảo tính cô lập dữ liệu.
     * **Message Broker:** Sử dụng **Apache Kafka** để truyền tải thông điệp bất đồng bộ (ví dụ: `transaction-service` báo cho `budget-service` cập nhật số dư).
     * **Giám sát (Monitoring):** Tích hợp **Prometheus** và **Grafana** để theo dõi sức khỏe hệ thống.
-* **Triển khai:** Toàn bộ cụm hệ thống được khởi chạy đồng bộ, cấu hình mạng nội bộ chặt chẽ thông qua `docker-compose.yml`.
+* **Triển khai:** Toàn bộ cụm hệ thống được khởi chạy đồng bộ, cấu hình mạng nội bộ chặt chẽ thông qua `docker-compose.yml`
 
 ### 3. Công nghệ Cốt lõi (Tech Stack)
 * **Ngôn ngữ & Framework:** Python (FastAPI), JavaScript (Frontend/PWA), Go.
