@@ -78,7 +78,7 @@ def update_user_profile(user_id: int, goal: str, risk: str):
     except Exception:
         pass
 
-def transfer_jars(user_id: int, transfer_data: dict):
+def transfer_jars(user_id: str, transfer_data: dict):
     try:
         res = requests.post(
             f"{BUDGET_SERVICE_URL}/api/planning/internal/jars/transfer",
@@ -87,6 +87,70 @@ def transfer_jars(user_id: int, transfer_data: dict):
         )
         if res.status_code == 200:
             return res.json()
-        raise HTTPException(status_code=400, detail="Lỗi chuyển quỹ")
-    except requests.exceptions.RequestException:
-        raise HTTPException(status_code=500, detail="Budget Service không phản hồi.")
+        
+        error_detail = res.text
+        try:
+            error_detail = res.json().get("detail", res.text)
+        except:
+            pass
+            
+        raise HTTPException(status_code=res.status_code, detail=str(error_detail))
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Budget Service không phản hồi: {str(e)}")
+
+def create_jar(user_id: int, jar_data: dict):
+    try:
+        payload = {
+            "name": jar_data.get("name", "Hũ mới"),
+            "goal_amount": float(jar_data.get("goal_amount", 0)),
+            "percent": 0 
+        }
+        res = requests.post(
+            f"{BUDGET_SERVICE_URL}/api/planning/internal/jars",
+            json=payload,
+            headers=get_headers(user_id)
+        )
+        if res.status_code in (200, 201):
+            return res.json()
+    except Exception as e:
+        print("Lỗi tạo hũ:", e)
+    return None
+
+def delete_jar_by_name(user_id: int, jar_name: str):
+    try:
+        jars = get_jars(user_id)
+        target_jar = next((j for j in jars if j["name"].lower() == jar_name.lower()), None)
+        
+        if target_jar:
+            requests.delete(
+                f"{BUDGET_SERVICE_URL}/api/planning/internal/jars/{target_jar['id']}",
+                headers=get_headers(user_id)
+            )
+            return True
+    except Exception as e:
+        print("Lỗi xóa hũ:", e)
+    return False
+
+def set_budget(user_id: str, budget_data: dict):
+    try:
+        payload = {
+            "category": budget_data.get("category", "Khác"),
+            "limit_amount": float(budget_data.get("limit_amount", 0)),
+            "period_type": "month"
+        }
+        res = requests.post(
+            f"{BUDGET_SERVICE_URL}/api/planning/internal/budgets",
+            json=payload,
+            headers=get_headers(user_id)
+        )
+        if res.status_code in (200, 201):
+            return True
+        
+        error_detail = res.text
+        try:
+            error_detail = res.json().get("detail", res.text)
+        except:
+            pass
+        raise HTTPException(status_code=res.status_code, detail=str(error_detail))
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Budget Service không phản hồi: {str(e)}")

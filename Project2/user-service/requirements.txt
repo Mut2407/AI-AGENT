@@ -10,3 +10,5 @@ python-dotenv
 PyJWT
 python-multipart
 prometheus-fastapi-instrumentator
+Pytest
+httpx

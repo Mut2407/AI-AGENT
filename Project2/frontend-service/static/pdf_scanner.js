@@ -201,9 +201,13 @@
                 try {
                     let successCount = 0;
                     for (const data of finalData) {
-                        const response = await fetch('/api/ai/extract/confirm', {
+                        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+                        const response = await fetch('/api/expenses', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: {
+                                 'Content-Type': 'application/json', 
+                                 'Authorization': `Bearer ${token}`
+                                },
                             body: JSON.stringify(data)
                         });
                         if (response.ok) successCount++;

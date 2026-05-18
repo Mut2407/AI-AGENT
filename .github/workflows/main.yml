@@ -1,0 +1,165 @@
+name: ExpenseOwl Microservices CI/CD Pipeline
+
+# ==========================================================
+# TRIGGERS
+# ==========================================================
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+# ==========================================================
+# ENVIRONMENT VARIABLES
+# ==========================================================
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
+jobs:
+
+# ==========================================================
+# CI - RUN AUTOMATED TESTS
+# ==========================================================
+  continuous-integration:
+    name: CI - Test Python Services
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - ai-service
+          - user-service
+          - transaction-service
+          - budget-service
+
+    steps:
+      
+      # ------------------------------------------------------
+      # Checkout source code
+      # ------------------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------
+      # Setup Python
+      # ------------------------------------------------------
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      # ------------------------------------------------------
+      # Install dependencies
+      # ------------------------------------------------------
+      - name: Install Dependencies
+        working-directory: ./Project2/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+
+          pip install pytest pytest-mock httpx
+          
+      # ------------------------------------------------------
+      # Run Pytest
+      # ------------------------------------------------------  
+      - name: Run Pytest
+        working-directory: ./Project2/${{ matrix.service }}
+        env:
+          PYTHONPATH: .
+        run: |
+          if [ -d "app/tests" ]; then
+            pytest app/tests -v -s --tb=short
+
+          elif [ -d "tests" ]; then
+            pytest tests -v -s --tb=short
+
+          else
+            echo "No tests folder found in ${{ matrix.service }}"
+          fi
+
+# ==========================================================
+# CD - BUILD & PUSH DOCKER IMAGES
+# ==========================================================
+  continuous-deployment:
+    name: CD - Build & Push Docker Images
+    runs-on: ubuntu-latest
+
+    needs: continuous-integration
+
+    # Chỉ push image khi push thật lên main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - user-service
+          - transaction-service
+          - budget-service
+          - ai-service
+          - notification-service
+          - api-gateway
+          - frontend-service
+
+    steps:
+
+      # ------------------------------------------------------
+      # Checkout source code
+      # ------------------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------
+      # Setup Docker Buildx
+      # ------------------------------------------------------
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ------------------------------------------------------
+      # Login Docker Hub
+      # ------------------------------------------------------
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ------------------------------------------------------
+      # Extract metadata
+      # ------------------------------------------------------
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/expenseowl-${{ matrix.service }}
+
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      # ------------------------------------------------------
+      # Build and Push Docker Image
+      # ------------------------------------------------------
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Project2/${{ matrix.service }}
+          file: ./Project2/${{ matrix.service }}/Dockerfile
+
+          push: true
+
+          tags: ${{ steps.meta.outputs.tags }}
+
+          labels: ${{ steps.meta.outputs.labels }}
+
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
