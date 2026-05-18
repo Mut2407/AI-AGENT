@@ -536,7 +536,7 @@ def receive_n8n_receipt(
     
     try:
         # Thêm timeout để tránh kẹt request
-        ai_response = requests.post(f"{AI_SERVICE_URL}/api/ai/extract", json={"text": raw_text}, timeout=15)
+        ai_response = requests.post(f"{AI_SERVICE_URL}/api/ai/extract-text", json={"text": raw_text}, timeout=15)
         
         if ai_response.status_code == 200:
             ai_data = ai_response.json()

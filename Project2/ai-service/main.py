@@ -681,3 +681,56 @@ def generate_spending_suggestions(req: SuggestionRequest, current_user: dict = D
         return result_json
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Cú Mèo tính toán thất bại. Chi tiết: {str(e)}")
+    
+class TextExtractRequest(BaseModel):
+    text: str
+
+# ==========================================
+# API NỘI BỘ: TRÍCH XUẤT TỪ VĂN BẢN (DÀNH CHO WEBHOOK N8N)
+# ==========================================
+@app.post("/api/ai/extract-text")
+def extract_expense_from_text(req: TextExtractRequest):
+    try:
+        api_key = get_random_api_key()
+        if not api_key: raise HTTPException(status_code=500, detail="Chưa cấu hình GEMINI_API_KEY")
+
+        prompt = f"""Bạn là trợ lý tài chính. Trích xuất thông tin giao dịch từ nội dung email/tin nhắn sau.
+        QUY TẮC QUAN TRỌNG VỀ SỐ TIỀN (amount):
+        - Nếu là hóa đơn mua hàng, thanh toán, chuyển tiền ĐI (Chi tiêu) -> BẮT BUỘC biến 'amount' phải là SỐ ÂM (ví dụ: -50000).
+        - Nếu là biên lai nhận tiền, chuyển tiền ĐẾN (Thu nhập) -> Biến 'amount' là SỐ DƯƠNG (ví dụ: 50000).
+        - Trả về số nguyên hoặc số thực, KHÔNG chứa dấu phẩy/chấm phân cách hàng nghìn.
+
+        Trả về DUY NHẤT một chuỗi JSON hợp lệ, KHÔNG GIẢI THÍCH:
+        {{
+            "name": "Tên cửa hàng/người nhận/người gửi",
+            "amount": -50000,
+            "category": "Ăn uống, Mua sắm, Di chuyển, Hóa đơn, Lương, Khác",
+            "date": "YYYY-MM-DD",
+            "type": "chi" hoặc "thu"
+        }}
+        
+        Nội dung: {req.text}
+        """
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={api_key}"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}
+        }
+
+        response = call_gemini_with_backoff(url, payload)
+        result_data = response.json()
+
+        if "candidates" not in result_data or len(result_data["candidates"]) == 0:
+            raise HTTPException(status_code=400, detail="Gemini từ chối phân tích.")
+
+        ai_text = result_data["candidates"][0]["content"]["parts"][0].get("text", "")
+        match = re.search(r"\{.*\}", ai_text, re.DOTALL)
+        clean_text = match.group(0) if match else ai_text.strip()
+
+        # Webhook bên kia đang đợi dict chứa key name, amount... nên ta trả về thẳng data luôn
+        return json.loads(clean_text)
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
