@@ -520,18 +520,14 @@ def receive_n8n_receipt(
     email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', payload.receiver) 
     extracted_email = email_match.group(0).lower() if email_match else ""
 
-    # 🚀 ĐÃ SỬA: Gọi đúng tên hàm mới
     user_info = get_user_info_by_email(extracted_email)
     
-    # 🚀 ĐÃ SỬA: Kiểm tra xem user có tồn tại không
     if not user_info or not user_info.get("username"):
         return {"status": "ignored", "message": f"Email {extracted_email} không có trong hệ thống!"}
 
-    # 🚀 CHỐT CHẶN MỚI: Kiểm tra công tắc đồng bộ email
     if not user_info.get("is_email_sync_enabled"):
         return {"status": "ignored", "message": f"Tài khoản {extracted_email} đang TẮT tính năng tự động hóa Email!"}
 
-    # 🚀 Lấy username để lưu vào Database
     user_id_to_save = user_info.get("username")
 
     # 3. GỌI AI SERVICE ĐỂ BÓC TÁCH NỘI DUNG THÔ
@@ -539,38 +535,36 @@ def receive_n8n_receipt(
     AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://ai-service:8000")
     
     try:
-        ai_response = requests.post(f"{AI_SERVICE_URL}/api/ai/extract", json={"text": raw_text})
+        # Thêm timeout để tránh kẹt request
+        ai_response = requests.post(f"{AI_SERVICE_URL}/api/ai/extract", json={"text": raw_text}, timeout=15)
+        
         if ai_response.status_code == 200:
             ai_data = ai_response.json()
             expense_name = ai_data.get("name", "Auto Receipt")
             
-            # 🚀 LẤY SỐ TIỀN THÔ
             raw_amount = float(ai_data.get("amount", 0))
+            txn_type = ai_data.get("type", "chi")
             
-            # 🚀 PHÂN XỬ THU CHI VÀ KẸP DẤU TRỪ
-            txn_type = ai_data.get("type", "chi") # Mặc định nghi ngờ là 'chi' cho an toàn
             if txn_type == "chi":
-                expense_amount = -abs(raw_amount) # Ép thành số ÂM
+                expense_amount = -abs(raw_amount)
             else:
-                expense_amount = abs(raw_amount)  # Ép thành số DƯƠNG
+                expense_amount = abs(raw_amount)
                 
             expense_category = ai_data.get("category", "Khác")
-            
             ai_date_str = ai_data.get("date")
+            
             try:
-                from datetime import datetime
                 expense_date = datetime.strptime(ai_date_str[:10], "%Y-%m-%d") if ai_date_str else datetime.now()
             except:
                 expense_date = datetime.now()
         else:
-            raise Exception("AI Service trả về lỗi")
+            # SỬA LỖI: Trả về HTTP 400 để n8n báo lỗi, không tự ý tạo giao dịch 0 đồng
+            raise HTTPException(status_code=400, detail=f"AI Service xử lý thất bại! Code: {ai_response.status_code}")
+            
     except Exception as e:
         print("Lỗi khi gọi AI:", e)
-        expense_name = "Biên lai chưa phân loại"
-        expense_amount = 0.0
-        expense_category = "Khác"
-        from datetime import datetime
-        expense_date = datetime.now()
+        # SỬA LỖI: Trả về HTTP 400 để dừng tiến trình
+        raise HTTPException(status_code=400, detail=f"Lỗi kết nối AI Service: {str(e)}")
 
     # 4. LƯU GIAO DỊCH VÀO DATABASE
     new_expense = models.Transaction(
@@ -584,6 +578,20 @@ def receive_n8n_receipt(
     )
     db.add(new_expense)
     db.commit()
+    db.refresh(new_expense)
+
+    # 5. SỬA LỖI: BẮN SỰ KIỆN KAFKA ĐỂ BUDGET SERVICE CẬP NHẬT
+    try:
+        kafka_pro.send_transaction_event("TRANSACTION_CREATED", {
+            "id": new_expense.id,
+            "user_id": new_expense.user_id,
+            "jar_id": None, # Webhook mặc định không vào hũ nào, sẽ trừ ở Số dư khả dụng
+            "amount": float(new_expense.amount),
+            "category": new_expense.category,
+            "transaction_date": new_expense.date.isoformat() if new_expense.date else datetime.now().isoformat()
+        })
+    except Exception as e:
+        print(f"Lỗi gửi Kafka trong Webhook: {e}")
 
     return {"status": "success", "message": "Biên lai đã được tự động lưu!"}
 
